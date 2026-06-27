@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HubSpot Map - MatchMove</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{--bg:#0d0e14;--surface:#13141c;--surface2:#1a1b26;--border:#22243a;--dem:#4ade80;--deb:#f97316;--net:#38bdf8;--men:#e879f9;--imm:#94a3b8;--gmd:#fbbf24;--pf:#a78bfa;--ban:#ff2222;--txt:#e2e4f0;--mut:#52546e;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--txt);height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+header{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.08em;}
+.brand-icon{width:28px;height:28px;border-radius:6px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:14px;}
+.stats-bar{display:flex;gap:4px;margin-left:auto;align-items:center;flex-wrap:wrap;}
+.stat-chip{display:flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);font-family:'DM Mono',monospace;font-size:10px;cursor:pointer;transition:all .2s;user-select:none;}
+.stat-chip.active{border-width:2px;} .stat-chip:not(.active){opacity:.5;} .stat-chip:not(.active):hover{opacity:.85;}
+.stat-chip .dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.stat-chip.dem .dot{background:var(--dem);} .stat-chip.dem.active{border-color:var(--dem);color:var(--dem);background:rgba(74,222,128,.08);}
+.stat-chip.deb .dot{background:var(--deb);} .stat-chip.deb.active{border-color:var(--deb);color:var(--deb);background:rgba(249,115,22,.08);}
+.stat-chip.net .dot{background:var(--net);} .stat-chip.net.active{border-color:var(--net);color:var(--net);background:rgba(56,189,248,.08);}
+.stat-chip.men .dot{background:var(--men);} .stat-chip.men.active{border-color:var(--men);color:var(--men);background:rgba(232,121,249,.08);}
+.stat-chip.imm .dot{background:var(--imm);} .stat-chip.imm.active{border-color:var(--imm);color:var(--imm);background:rgba(148,163,184,.08);}
+.stat-chip.gmd .dot{background:var(--gmd);} .stat-chip.gmd.active{border-color:var(--gmd);color:var(--gmd);background:rgba(251,191,36,.08);}
+.stat-chip.pf .dot{background:var(--pf);} .stat-chip.pf.active{border-color:var(--pf);color:var(--pf);background:rgba(167,139,250,.08);}
+.stat-chip.ban .dot{background:var(--ban);} .stat-chip.ban.active{border-color:var(--ban);color:var(--ban);background:rgba(255,34,34,.08);}
+.count{font-weight:700;}
+.search-wrap{position:relative;margin-left:6px;}
+.search-input{padding:5px 12px 5px 28px;border-radius:20px;border:1px solid var(--border);background:var(--bg);color:var(--txt);font-family:'DM Sans',sans-serif;font-size:12px;outline:none;width:160px;}
+.search-input:focus{border-color:#6366f1;}
+.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);font-size:11px;opacity:.4;}
+.main{flex:1;display:flex;overflow:hidden;}
+#map{flex:1;}
+.leaflet-container{background:#0d0e14;}
+.leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(.8) saturate(1.4) contrast(1.1);}
+.leaflet-control-zoom a{background:var(--surface)!important;color:var(--txt)!important;border-color:var(--border)!important;}
+.leaflet-control-attribution{background:rgba(13,14,20,.8)!important;color:var(--mut)!important;font-size:9px!important;}
+.leaflet-popup-content-wrapper{background:var(--surface)!important;border:1px solid var(--border)!important;border-radius:10px!important;box-shadow:0 12px 40px rgba(0,0,0,.6)!important;color:var(--txt)!important;padding:0!important;overflow:hidden!important;}
+.leaflet-popup-tip-container{display:none;} .leaflet-popup-content{margin:0!important;}
+.popup-inner{padding:12px 14px;}
+.popup-cat{display:inline-block;padding:2px 8px;border-radius:10px;font-family:'DM Mono',monospace;font-size:9px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px;border:1px solid;}
+.popup-name{font-size:13px;font-weight:700;margin-bottom:3px;line-height:1.3;}
+.popup-loc{font-size:11px;color:var(--mut);}
+.popup-footer{border-top:1px solid var(--border);padding:8px 14px;display:flex;justify-content:space-between;align-items:center;}
+.popup-link{font-family:'DM Mono',monospace;font-size:10px;text-decoration:none;opacity:.8;}
+.popup-link:hover{opacity:1;text-decoration:underline;}
+.panel{width:300px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;transform:translateX(100%);transition:transform .28s cubic-bezier(.4,0,.2,1);}
+.panel.open{transform:translateX(0);}
+.panel-top{padding:16px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start;}
+.panel-cat-icon{width:36px;height:36px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.panel-name{font-size:14px;font-weight:700;line-height:1.3;}
+.panel-badge{display:inline-block;padding:2px 8px;border-radius:10px;font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.06em;text-transform:uppercase;border:1px solid;margin-top:4px;}
+.panel-close{margin-left:auto;background:none;border:1px solid var(--border);color:var(--mut);cursor:pointer;width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.panel-close:hover{border-color:var(--txt);color:var(--txt);}
+.panel-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;}
+.info-block{display:flex;gap:10px;align-items:flex-start;}
+.info-icon{font-size:14px;flex-shrink:0;margin-top:1px;opacity:.55;}
+.info-label{font-family:'DM Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);margin-bottom:2px;}
+.info-val{font-size:12px;line-height:1.4;}
+.info-link{color:#60a5fa;text-decoration:none;font-size:12px;}
+.info-link:hover{text-decoration:underline;}
+.panel-desc{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11px;color:var(--mut);line-height:1.5;font-style:italic;}
+.panel-foot{padding:14px;border-top:1px solid var(--border);}
+.btn-hs{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:10px;border-radius:8px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;font-family:'DM Sans',sans-serif;font-weight:600;font-size:12px;cursor:pointer;text-decoration:none;}
+.btn-hs:hover{opacity:.85;}
+.banned-consigne{background:rgba(255,34,34,.1);border:1.5px solid rgba(255,34,34,.5);border-radius:8px;padding:10px 12px;}
+.banned-consigne-title{font-family:'DM Mono',monospace;font-size:10px;font-weight:700;color:#ff2222;letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:5px;margin-bottom:6px;}
+.banned-consigne-row{font-size:11px;line-height:1.6;color:var(--txt);display:flex;gap:6px;align-items:flex-start;margin-bottom:2px;}
+.costockage-block{padding:10px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;}
+.costockage-title{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#fbbf24;margin-bottom:6px;}
+.costockage-desc{font-size:11px;color:#94a3b8;line-height:1.5;margin-bottom:8px;}
+@keyframes bannedPulse{0%,100%{box-shadow:0 0 8px rgba(255,34,34,.5);}50%{box-shadow:0 0 20px rgba(255,34,34,.9);}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="brand-icon">🗺</div>HubSpot MAP</div>
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-chip dem active" onclick="toggleFilter('demenagement',this)"><div class="dot"></div><span>Déménagement</span><span class="count" id="c-dem">-</span></div>
+    <div class="stat-chip deb active" onclick="toggleFilter('debarras',this)"><div class="dot"></div><span>Débarras</span><span class="count" id="c-deb">-</span></div>
+    <div class="stat-chip net active" onclick="toggleFilter('nettoyage',this)"><div class="dot"></div><span>Nettoyage</span><span class="count" id="c-net">-</span></div>
+    <div class="stat-chip men active" onclick="toggleFilter('menage',this)"><div class="dot"></div><span>Ménage</span><span class="count" id="c-men">-</span></div>
+    <div class="stat-chip imm active" onclick="toggleFilter('immobilier',this)"><div class="dot"></div><span>Immobilier</span><span class="count" id="c-imm">-</span></div>
+    <div class="stat-chip gmd active" onclick="toggleFilter('gardemeubles',this)"><div class="dot"></div><span>🏪 Garde-meubles</span><span class="count" id="c-gmd">-</span></div>
+    <div class="stat-chip pf active" onclick="toggleFilter('pf',this)"><div class="dot"></div><span>⚱️ Pompes funèbres</span><span class="count" id="c-pf">-</span></div>
+    <div class="stat-chip ban active" onclick="toggleFilter('banned',this)"><div class="dot"></div><span>🚫 Banned</span><span class="count" id="c-ban">-</span></div>
+    <div class="search-wrap"><span class="search-icon">🔍</span><input class="search-input" id="search" placeholder="Rechercher..." oninput="applyFilters()"></div>
+  </div>
+</header>
+<div class="main">
+  <div id="map"></div>
+  <div class="panel" id="panel">
+    <div class="panel-top">
+      <div class="panel-cat-icon" id="p-icon">🏠</div>
+      <div><div class="panel-name" id="p-name">-</div><div class="panel-badge" id="p-badge">-</div></div>
+      <button class="panel-close" onclick="closePanel()">×</button>
+    </div>
+    <div class="panel-body">
+      <div class="info-block"><div class="info-icon">📍</div><div><div class="info-label">Adresse</div><div class="info-val" id="p-addr">-</div></div></div>
+      <div class="info-block" id="pb-phone" style="display:none"><div class="info-icon">📞</div><div><div class="info-label">Téléphone</div><div class="info-val" id="p-phone"></div></div></div>
+      <div class="info-block" id="pb-web" style="display:none"><div class="info-icon">🌐</div><div><div class="info-label">Site web</div><a class="info-link" id="p-web" href="#" target="_blank"></a></div></div>
+      <div id="pb-desc" style="display:none"><div class="info-label" style="margin-bottom:5px">Note</div><div class="panel-desc" id="p-desc"></div></div>
+      <div id="pb-banned" style="display:none">
+        <div class="banned-consigne">
+          <div class="banned-consigne-title">⛔ Consigne Ops - BA2 NED</div>
+          <div class="banned-consigne-row">🚫 <span><b>Statut :</b> BANNED - prestataire hors-flux</span></div>
+          <div class="banned-consigne-row">🔴 <span><b>Action :</b> NE PAS SOLLICITER par défaut</span></div>
+          <div class="banned-consigne-row">⚠️ <span><b>Exception :</b> Urgence critique uniquement</span></div>
+        </div>
+      </div>
+      <div id="pb-costockage" style="display:none">
+        <div class="costockage-block">
+          <div class="costockage-title">🤝 Partenaire Costockage</div>
+          <div class="costockage-desc">Centre self-stockage <b>Kostok</b> - boxes sécurisés, accès 6h-23h, assurance incluse.</div>
+          <a href="https://www.costockage.fr" target="_blank" style="font-size:11px;color:#fbbf24;text-decoration:none;padding:3px 8px;border:1px solid rgba(251,191,36,.4);border-radius:4px;">🌐 costockage.fr</a>
+        </div>
+      </div>
+    </div>
+    <div class="panel-foot"><a class="btn-hs" id="p-hslink" href="#" target="_blank">🔗 Voir dans HubSpot</a></div>
+  </div>
+</div>
+<script>
+const COMPANIES=[
+{id:"435042181318",name:"FMDE",city:"Montpellier",zip:"34000",lat:43.611,lng:3.877,desc:"2 camions de 25m3",cat:"debarras",multi:"1"},
+{id:"433918338281",name:"EHA Transport",city:"SAINT-ETIENNE",zip:"42100",lat:45.418,lng:4.402,address:"27 RUE Virgile",desc:"23m3/17m3/12 m3",cat:"demenagement",multi:"1"},
+{id:"433041872089",name:"ÉTOILE TRANSPORT",city:"SAINT-MAX",zip:"54130",lat:48.706,lng:6.208,address:"APT 221, 6 RUE DU MAQUIS DE RANZEY",desc:"nancy",cat:"demenagement",multi:"1"},
+{id:"431952036050",name:"AQUIFAST",city:"SAINT-SULPICE-ET-CAMEYRAC",zip:"33450",lat:44.836,lng:-0.578,address:"ZA CANTELOUP, 1 RUE DES ARCHERS",desc:"Déménagement + débarras",cat:"demenagement"},
+{id:"432059234524",name:"3S livraisons",city:"BREST",zip:"29200",lat:48.39,lng:-4.486,address:"2 RUE DE POULCANASTROC",desc:"Déménagement et débarras",cat:"demenagement"},
+{id:"430316499153",name:"MAO TRANSPORT",city:"MARSEILLE",zip:"13008",lat:43.258,lng:5.381,address:"180 AVENUE DU PRADO",desc:"Marseille",cat:"demenagement"},
+{id:"428840951021",name:"TRIGGER TRANSPORT ET DEMENAGEMENT",city:"LE BLANC-MESNIL",zip:"93150",lat:48.931,lng:2.488,address:"110 AVENUE DE LA DIVISION LECLERC",desc:"IDF",cat:"demenagement"},
+{id:"429008488658",name:"SMTD",city:"SAINT-DENIS",zip:"93200",lat:48.934,lng:2.358,address:"10 RUE DE LA BOULANGERIE",desc:"IDF",cat:"demenagement"},
+{id:"428800995559",name:"VG",city:"MALLEMORT",zip:"13370",lat:43.629,lng:5.179,address:"792 QUA BELLE PLAINE",desc:"Marseille",cat:"demenagement"},
+{id:"428024240357",name:"TRANS-PRODEM",city:"LE RAINCY",zip:"93340",lat:48.904,lng:2.529,address:"122 AVENUE DE LA RESISTANCE",desc:"IDF",cat:"demenagement"},
+{id:"428023458039",name:"WAYGO13",city:"MARSEILLE",zip:"13007",lat:43.288,lng:5.36,address:"6 RUE MARIGNAN",desc:"Marseille",cat:"demenagement"},
+{id:"426979938529",name:"DARES TRANSPORTS",city:"AUCH",zip:"32000",lat:43.647,lng:0.585,address:"39 RUE GASTON DEFFERRE",desc:"2 camions de 20 m3",cat:"demenagement"},
+{id:"425826678975",name:"MAB TRANSPORT",city:"MASSY",zip:"91300",lat:48.728,lng:2.278,address:"10 RUE PAUL EMILE VICTOR",desc:"2 camions de 22m3",cat:"demenagement"},
+{id:"425634491621",name:"Debarras connect",city:"LAUTREC",zip:"81440",lat:43.71,lng:2.139,address:"919 CHEMIN DU CAUSSE",website:"debarrasconnect.fr",desc:"Débarras",cat:"debarras"},
+{id:"423548371178",name:"LOGISTIQUE TRANSPORT ALLIANCE",city:"SAINT-GERMAIN-EN-LAYE",zip:"78100",lat:48.898,lng:2.095,address:"30 B RUE DU VIEIL ABREUVOIR",desc:"3 camions: 1x30m3, 2x20m3",cat:"demenagement"},
+{id:"422573742320",name:"TRANSALP",city:"VIRY-CHATILLON",zip:"91170",lat:48.627,lng:2.476,address:"3 RUE FRANCOEUR",desc:"Société de déménagement sur IDF",cat:"demenagement"},
+{id:"421666773199",name:"TRANSPORT MAHAMATH",city:"MAINVILLIERS",zip:"28300",lat:48.45,lng:1.508,address:"12 AVENUE DE BRETAGNE",desc:"Centre Val de Loire",cat:"demenagement"},
+{id:"421433739454",name:"Mecanique D47",city:"LE THILLAY",zip:"95500",lat:48.997,lng:2.529,address:"3 CHEMIN DES GLIRETTES",desc:"2 camions 20 et 30m3 — IDF",cat:"demenagement"},
+{id:"421233733862",name:"SLF Express",city:"MARSEILLE",zip:"13013",lat:43.33,lng:5.401,address:"48 AVENUE DE FRAIS VALLON",desc:"4 camions de 20m3",cat:"demenagement"},
+{id:"405940034761",name:"ETL EXPRESS TRANSPORT LIVRAISON",city:"GRASSE",zip:"06130",lat:43.659,lng:6.919,address:"45 AVENUE FREDERIC MISTRAL",desc:"2 camions 20m3",cat:"demenagement"},
+{id:"400840371428",name:"AMSTD TRANSPORT ET DEMENAGEMENT",city:"VILLEJUIF",zip:"94800",lat:48.79,lng:2.348,address:"38 BOULEVARD MAXIME GORKI",phone:"+33635342277",desc:"3 camions 20m3",cat:"demenagement"},
+{id:"400009901245",name:"HIPPOS TRANS",city:"TOURS",zip:"37200",lat:47.383,lng:0.699,address:"11 ALLEE ALCUIN",desc:"20m3/14m3/12m3/6m3 — autour de 37000",cat:"demenagement"},
+{id:"394600753376",name:"LEBLIC ROUEN (CITELIV ROUEN)",city:"ROUEN",zip:"76100",lat:49.426,lng:1.063,address:"38 AVENUE JEAN RONDEAUX",desc:"4x20m3 + 2x12m3 — rayon 76+27+Paris",cat:"demenagement"},
+{id:"393769363688",name:"RINATIR",city:"GRAND-COURONNE",zip:"76530",lat:49.368,lng:1.003,address:"1 SQUARE MONET",desc:"Un camion 20m3",cat:"demenagement"},
+{id:"394130488566",name:"FRENCH AZUR DEMENAGEMENT",city:"VALLAURIS",zip:"06220",lat:43.577,lng:7.055,address:"12 AVENUE DE L'EST",desc:"3 camions 20m3 équipés",cat:"demenagement"},
+{id:"387893372148",name:"Azur déménagement",city:"NICE",zip:"06000",lat:43.71,lng:7.262,address:"104 BOULEVARD DE LA MADELEINE",desc:"30m3/20m3/7m3",cat:"demenagement"},
+{id:"388701118702",name:"VGV DEMENAGEMENT",city:"EYBENS",zip:"38320",lat:45.147,lng:5.762,address:"10 RUE DE BELLEDONNE",desc:"30m3 — 2 personnes",cat:"demenagement"},
+{id:"388662657262",name:"MOVENS TRANSPORT",city:"Alligny-Cosne",zip:"58200",lat:47.413,lng:2.921,address:"Le Grand Begat 12",desc:"2 camions 20m3 — toute la région",cat:"demenagement"},
+{id:"386766053602",name:"Clicmove",city:"CLERMONT-FERRAND",zip:"63000",lat:45.78,lng:3.079,address:"7 RUE BARILLOT",desc:"Toute la France + international",cat:"demenagement"},
+{id:"385757282545",name:"France-Dem",city:"ROANNE",zip:"42300",lat:46.04,lng:4.071,address:"33 RUE DE VILLEMONTAIS",phone:"0675834038",website:"https://www.france-dem.com/",desc:"Déménagement — 4 VL / 2 MM — rayon 63/03/42",cat:"demenagement"},
+{id:"385740522695",name:"FEATRANSPORT HDJ",city:"Savenay",zip:"44260",lat:47.218,lng:-1.554,address:"2 Bis Boulevard Pasteur",phone:"0766809514",website:"https://www.featransporthdj.com",desc:"Débarras + déménagements",cat:"demenagement"},
+{id:"380606058740",name:"DESINF'EXTREME",city:"Bergesserin",zip:"71250",lat:46.439,lng:4.643,desc:"Débarras et nettoyage",cat:"debarras"},
+{id:"380453961915",name:"Master Transport",city:"MARSEILLE",zip:"13008",lat:43.258,lng:5.381,address:"165 AVENUE DU PRADO",desc:"5 camions de 20m3 — longues distances",banned:true,cat:"demenagement"},
+{id:"371979016405",name:"rym demenagement",city:"BONDY",zip:"93140",lat:48.903,lng:2.481,address:"28 RUE JEAN JAURES",desc:"2x30m3 + 2x20m3 + monte-meuble",cat:"demenagement"},
+{id:"370821465301",name:"ba7 logistique",city:"SAINT-ETIENNE",zip:"42100",lat:45.418,lng:4.402,address:"23 BOULEVARD ALEXANDRE DE FRAISSINETTE",desc:"1 camion 20m3",cat:"demenagement"},
+{id:"370024037589",name:"TDS demenagement",city:"Pérenchies",zip:"59840",lat:50.654,lng:2.962,address:"5 Rue des Platanes",desc:"Déménagement",cat:"demenagement"},
+{id:"370024024269",name:"MS TRANSPORT",city:"HERBLAY-SUR-SEINE",zip:"95220",lat:48.99,lng:2.196,address:"36 RUE D'ARGENTEUIL",desc:"3 camions de 20m3",cat:"demenagement"},
+{id:"372264518885",name:"Mardel Déménagements Transports",city:"Guénin",zip:"56150",lat:47.957,lng:-2.833,address:"4 ZA de Kermartin",desc:"3 poids lourd + 4 VL 3.5T",cat:"demenagement"},
+{id:"370023935212",name:"Plane demenagements",city:"CEBAZAT",zip:"63118",lat:45.817,lng:3.113,address:"ZI DE LADOUX, RUE VERTE",website:"www.plane-demenagements.fr",desc:"Poids lourd — garde-meuble — monte-meuble",cat:"demenagement"},
+{id:"369957307608",name:"ULYSSE DEMENAGEMENTS",city:"LEGUEVIN",zip:"31490",lat:43.601,lng:1.291,address:"37 B CHEMIN DE CAZALAS",phone:"0626893654",website:"https://www.ulysse-demenagements.com",desc:"2x20m3 + débarras",banned:true,cat:"demenagement"},
+{id:"361279216856",name:"Kbr Dem",city:"Villepinte",zip:"93420",lat:48.964,lng:2.554,address:"9 rue George Sand",desc:"Ex KBR Trans / Hyperexpress",cat:"demenagement"},
+{id:"361761052895",name:"Onyva Transport",city:"AUBERVILLIERS",zip:"93300",lat:48.916,lng:2.384,address:"7 RUE CHAPON",desc:"2 camions 20+30m3",cat:"demenagement"},
+{id:"350061523149",name:"TOUTRANS",city:"ORLEANS",zip:"45100",lat:47.902,lng:1.904,address:"6 AVENUE EDMOND MICHELET",desc:"Transport et déménagement — toute la France",cat:"demenagement"},
+{id:"306170675413",name:"BeauLaigue Demenagement",city:"L'ETRAT",zip:"42580",lat:45.447,lng:4.329,address:"Rue du Moulin Picon",phone:"+33610720187",website:"https://demenagement-beaulaigue.com",desc:"20 camions tous volumes — international",cat:"demenagement"},
+{id:"303037914355",name:"ASV Déménagement",city:"GAP",zip:"05000",lat:44.559,lng:6.079,address:"18 Avenue Jean Jaurès",website:"www.asv-demenagement.fr",desc:"3 camions de 30m3 — PACA",banned:true,cat:"demenagement"},
+{id:"300317053160",name:"FTDEM",city:"MEYREUIL",zip:"13590",lat:43.487,lng:5.5,address:"ZI LES SAUVAIRES, ROUTE DES SAUVAIRES",phone:"+33484496656",website:"https://www.ftdem.com",desc:"Déménagement + garde-meuble — national/international",banned:true,cat:"demenagement"},
+{id:"285101128894",name:"DROP IT",city:"LILLE",zip:"59000",lat:50.633,lng:3.058,address:"229 RUE DE SOLFERINO",desc:"Société de déménagement Lille",cat:"demenagement"},
+{id:"256542195955",name:"Move-Express",city:"PARIS",zip:"75008",lat:48.875,lng:2.31,desc:"3 camions 20m3 — IDF + 51/60/62",cat:"demenagement"},
+{id:"255907691747",name:"PACK SERVICES",city:"MONTMORENCY",zip:"95160",lat:48.986,lng:2.323,address:"11 B RUE DE LA REPUBLIQUE",desc:"VL + PL — IDF + Lyon",cat:"demenagement"},
+{id:"249838903530",name:"A2M TRANSPORT",city:"MASSY",zip:"91300",lat:48.728,lng:2.278,address:"8 RUE RENE CASSIN",desc:"10 camions tous volumes — IDF",cat:"demenagement"},
+{id:"249843099874",name:"AMG ALPES DEMENAGEMENT",city:"ECHIROLLES",zip:"38130",lat:45.149,lng:5.68,address:"6 ALLEE FRANCOIS VILLON",desc:"Déménagement + débarras 38",cat:"demenagement"},
+{id:"244815202493",name:"MDN DEMENAGEMENT",city:"MARSEILLE",zip:"13013",lat:43.33,lng:5.401,desc:"20m3 — camion bien équipé",banned:true,cat:"demenagement"},
+{id:"244604298429",name:"A.M IGNACE DEMENAGEMENT",city:"CLAIRA",zip:"66530",lat:42.619,lng:3.004,address:"8 RUE PABLO PICASSO",desc:"Déménagement 66 — 20m3",banned:true,cat:"demenagement"},
+{id:"242227585237",name:"Groupadem",city:"VANDŒUVRE-LES-NANCY",zip:"54500",lat:48.659,lng:6.164,address:"11 RUE D'AMSTERDAM",desc:"Déménageur sur 47",banned:true,cat:"demenagement"},
+{id:"241540415677",name:"Trans 62",city:"Libercourt",zip:"62820",lat:50.49,lng:2.951,desc:"Presta Dem",cat:"demenagement"},
+{id:"235755411665",name:"LES DEMENAGEURS GIRONDINS",city:"PESSAC",zip:"33600",lat:44.809,lng:-0.634,address:"67 AVENUE DU DOCTEUR NANCEL PENARD",website:"demenageursgirondins.com",desc:"Déménageur Bordeaux",cat:"demenagement"},
+{id:"235077224638",name:"Imotrans",city:"AULNAY-SOUS-BOIS",zip:"93600",lat:48.941,lng:2.498,address:"BUREAU 106, GARONOR",website:"www.imo-trans.eu",desc:"Déménageur + garde-meuble — 6 camions",cat:"demenagement"},
+{id:"230698727619",name:"LAROUSSI YOUSSEF (MR PROPRE)",city:"BAYONNE",zip:"64100",lat:43.494,lng:-0.766,address:"2 AV DE JOUANDIN",desc:"Déménagement + débarras — Pau",cat:"demenagement"},
+{id:"217690333419",name:"Rayouss Transport",city:"ALFORTVILLE",zip:"94140",lat:48.803,lng:2.418,address:"3 RUE JULES GUESDE",desc:"Déménageur Paris",banned:true,cat:"demenagement"},
+{id:"217690197215",name:"DEMENAGEMENT DE PETRICONI",city:"BORGO",zip:"20290",lat:42.553,lng:9.431,address:"390 RUE DES PLATANES",phone:"+33495321336",website:"www.demenagements-depetriconi.fr",desc:"Déménagement CORSE",banned:true,cat:"demenagement"},
+{id:"209299132627",name:"Rokket",city:"Marseille",zip:"13003",lat:43.312,lng:5.38,address:"25 RUE LAUTARD",desc:"Déménageur",cat:"demenagement"},
+{id:"192320745662",name:"ANI Déménagement Rhône Alpes",city:"Sevrier",zip:"74320",lat:45.885,lng:6.142,address:"25 Rte des Saintiers",phone:"+33420981581",desc:"Déménagement",banned:true,cat:"demenagement"},
+{id:"192179217617",name:"Les Pro Du Tetris",city:"Montpellier",zip:"34070",lat:43.608,lng:3.877,address:"543 Rue de la Castelle",phone:"+33652030561",website:"www.lesprodutetris.fr",desc:"Plusieurs 30m3",banned:true,cat:"demenagement"},
+{id:"191092473030",name:"Soliman EL BAHI",city:"MONTPELLIER",zip:"34000",lat:43.611,lng:3.877,desc:"Débarras",cat:"debarras"},
+{id:"187625825487",name:"KAR TRANSPORTS",city:"PARIS",zip:"75012",lat:48.847,lng:2.385,address:"9 RUE PARROT",desc:"Déménagement — camion 20m3",cat:"demenagement"},
+{id:"187607520494",name:"Amg Alpes Déménagement",city:"Échirolles",zip:"38130",lat:45.149,lng:5.68,address:"6 All. François Villon",desc:"3 camions 20/25/30m3",cat:"demenagement"},
+{id:"183210909903",name:"GENESIS DEMENAGEMENT",city:"CASTELNAU-LE-LEZ",zip:"34170",lat:43.63,lng:3.907,address:"199 RUE HELENE BOUCHER",phone:"+33686119732",website:"www.genesis-demenagement.fr",desc:"Déménageur Montpellier",banned:true,cat:"demenagement"},
+{id:"183210771677",name:"Arte Demenagement",city:"CLAIX",zip:"38640",lat:45.132,lng:5.591,address:"5 RUE EMILE ROMANET",website:"www.arte-demenagement.fr",desc:"Spécialiste Allemagne-France",banned:true,cat:"demenagement"},
+{id:"181821860064",name:"GO DELIVERY",city:"MARSEILLE",zip:"13012",lat:43.288,lng:5.421,address:"64 AVENUE DU 24 AVRIL 1915",desc:"Déménagement",cat:"demenagement"},
+{id:"180039142611",name:"TRANS ISMA EXPRESS",city:"SAINT-ETIENNE",zip:"42100",lat:45.418,lng:4.402,address:"35 RUE PIERRE ET DOMINIQUE PONCHARDIER",desc:"35m3 + 20m3 + 15m3 — longues distances",cat:"demenagement"},
+{id:"180038947038",name:"Mathias services",city:"bordeaux",zip:"33000",lat:44.836,lng:-0.578,desc:"Débarras",cat:"debarras"},
+{id:"178807859412",name:"WeberTransport Multiservices",city:"Saint-Ouen-sur-Seine",zip:"93400",lat:48.913,lng:2.332,address:"8 Rue Jean Pernin",desc:"Débarras",cat:"debarras"},
+{id:"178802545853",name:"ARM LABBADIE",city:"SENLIS",zip:"60300",lat:49.205,lng:2.589,address:"14 B avenue de la nonette",desc:"Débarras",cat:"debarras"},
+{id:"175288901865",name:"SARI Déménagement Transport",city:"Annemasse",zip:"74100",lat:46.196,lng:6.234,address:"6 Rue du Parc",phone:"+33698525975",desc:"2 camions 20m3 — départ 74",cat:"demenagement"},
+{id:"175158909172",name:"ALPES GRENOBLE DEMENAGEMENT",city:"Grenoble",zip:"38100",lat:45.166,lng:5.722,address:"14 Rue des Déportés",desc:"3 camions 25-30m3 — longues distances",cat:"demenagement"},
+{id:"173660627167",name:"MBS TRANSPORT",city:"SAINT-MAX",zip:"54130",lat:48.706,lng:6.208,address:"46 RUE DE LA HAIE LE COMTE",desc:"3 camions 20m3",cat:"demenagement"},
+{id:"173084199154",name:"IMPRO SERVICES",city:"ROUEN",zip:"76100",lat:49.426,lng:1.063,address:"10 rue de l'industrie",desc:"Débarras suite décès + Diogène",cat:"nettoyage"},
+{id:"172433507546",name:"Gdg Multiservices",city:"Aulnay-sous-Bois",zip:"93600",lat:48.941,lng:2.498,address:"26 Bd de Strasbourg",desc:"Débarras et nettoyage — dép. 51,60,93",cat:"debarras"},
+{id:"171829498046",name:"Maison Débarras KJP",city:"Ingré",zip:"45140",lat:47.941,lng:1.852,address:"100 Rte de la Chapelle",desc:"Débarras — dép. 45,28,41,18,91,77",cat:"debarras"},
+{id:"171754750150",name:"BENOIT DEBARRAS",city:"Charente",zip:"16000",lat:45.651,lng:0.16,desc:"Débarras — dép. 16, 33, 17",cat:"debarras"},
+{id:"171743160560",name:"COUDEREAU CLEMENT - Brocante - Débarras",city:"Marmagne",zip:"18500",lat:46.997,lng:2.588,address:"4 Rue des Marais",desc:"Débarras suite décès",cat:"debarras"},
+{id:"170383350007",name:"NOMAD TRANSERVICES",city:"Paris",zip:"75012",lat:48.847,lng:2.385,address:"9 RUE DE WATTIGNIES",desc:"1 camion 20m3 — IDF + dép. en tour",cat:"demenagement"},
+{id:"170383232200",name:"DEBARRAS SOLUTION",city:"VILLEURBANNE",zip:"69100",lat:45.775,lng:4.882,address:"4 RUE LOUIS GALVANI",desc:"Débarras",cat:"debarras"},
+{id:"163898622158",name:"METEOR COURSES",city:"PARIS",zip:"75012",lat:48.847,lng:2.385,address:"266 AVENUE DAUMESNIL",desc:"Déménagement IDF",cat:"demenagement"},
+{id:"163898617071",name:"On Débarrasse Le Mans",city:"La Chapelle-Saint-Aubin",zip:"72650",lat:48.029,lng:0.124,address:"3 Rue André Citroën",desc:"Débarras",cat:"debarras"},
+{id:"163898531029",name:"Débarras Organisé",city:"Saint-Philbert-de-Grand-Lieu",zip:"44310",lat:47.02,lng:-1.652,address:"2 Les Plants Gouy",desc:"Débarras",cat:"debarras"},
+{id:"163898501358",name:"BONJOUR DEMENAGEMENT",city:"LAVAL",zip:"53000",lat:48.073,lng:-0.77,address:"44 Rue Bernard le Pecq",desc:"Déménagement",cat:"demenagement"},
+{id:"163898344688",name:"Mazat Transport",city:"NICE",zip:"06100",lat:43.705,lng:7.235,address:"117 BOULEVARD DE CESSOLE",phone:"+330762298814",website:"mazatdemenagementettransports.fr",desc:"Déménagement sur Nice",cat:"demenagement"},
+{id:"163211953351",name:"GENERALE DES SERVICES AVIGNON",city:"Les Angles",zip:"30133",lat:43.926,lng:4.66,address:"20 Bd Jean Rey",desc:"Nettoyage (SAP)",cat:"nettoyage"},
+{id:"163236995276",name:"AFONNETTOYAGE",city:"PERPIGNAN",zip:"66000",lat:42.699,lng:2.895,desc:"Nettoyage",cat:"nettoyage"},
+{id:"163211680984",name:"NC NETTOYAGE 66",city:"SAINT-ESTEVE",zip:"66240",lat:42.712,lng:2.848,address:"22 RUE DE SYDNEY",desc:"Nettoyage",cat:"nettoyage"},
+{id:"163236894922",name:"ABC NETTOYAGE GIMENEZ 66",city:"PERPIGNAN",zip:"66000",lat:42.699,lng:2.895,address:"14 AVENUE PIERRE CAMBRES",desc:"Nettoyage",cat:"nettoyage"},
+{id:"163000316106",name:"CLEAN FRESH",city:"Nîmes",zip:"30900",lat:43.839,lng:4.362,address:"442 Av. Jean Prouvé",desc:"Nettoyage",cat:"nettoyage"},
+{id:"162988799196",name:"OCLEAN SUD",city:"Nîmes",zip:"30900",lat:43.839,lng:4.362,address:"3bis Rue Arnavielle",desc:"Nettoyage — tout sauf suite décès",cat:"nettoyage"},
+{id:"162968400105",name:"SO PROP",city:"Marseille",zip:"13015",lat:43.348,lng:5.361,address:"53 traverse du moulin à vent",desc:"Nettoyage",cat:"nettoyage"},
+{id:"162404639969",name:"MBM PROPRETE ET SERVICES",city:"Avignon",zip:"84000",lat:43.951,lng:4.808,address:"75 Rue Pierre Paraf",desc:"Nettoyage, débarras, déménagement — Nîmes/Marseille/Vaucluse",cat:"nettoyage"},
+{id:"160758417638",name:"SAMSIC FACILITY LE HAVRE",city:"Montivilliers",zip:"76290",lat:49.53,lng:0.225,address:"115 Rte du Mesnil",desc:"Nettoyage",banned:true,cat:"nettoyage"},
+{id:"161779727559",name:"PROCLEAN",city:"LE HAVRE",zip:"76600",lat:49.494,lng:0.107,address:"7 RUE WASHINGTON",desc:"Nettoyage et débarras",cat:"nettoyage"},
+{id:"161779628230",name:"SNSAP Services",city:"Sotteville-lès-Rouen",zip:"76300",lat:49.408,lng:1.083,address:"40 Rue Emile Zola",desc:"Nettoyage",cat:"nettoyage"},
+{id:"160758249681",name:"Plm nettoyage rouen",city:"Rouen",zip:"76000",lat:49.443,lng:1.099,address:"8 Rue Marin le Pigny",desc:"Nettoyage",banned:true,cat:"nettoyage"},
+{id:"160758221048",name:"Les Pros du Propre — Paris Sud",city:"Corbeil-Essonnes",zip:"91100",lat:48.627,lng:2.476,address:"35 Av. Darblay",desc:"Nettoyage",cat:"nettoyage"},
+{id:"160758206709",name:"O NETTOYAGE ROUEN",city:"Rouen",zip:"76000",lat:49.443,lng:1.099,address:"53 Bd des Belges",desc:"Nettoyage",cat:"nettoyage"},
+{id:"160327769334",name:"Properis Nettoyage",city:"Lille",zip:"59800",lat:50.631,lng:3.072,address:"70 Bd de la Liberté",desc:"Nettoyage",cat:"nettoyage"},
+{id:"160121924828",name:"société AR nettoyage",city:"LA PENNE-SUR-HUVEAUNE",zip:"13821",lat:43.317,lng:5.498,address:"61 BOULEVARD JEAN-JACQUES ROUSSEAU",desc:"Nettoyage",cat:"nettoyage"},
+{id:"160235803851",name:"BEL NETTOYAGE",city:"Marseille",zip:"13006",lat:43.286,lng:5.381,address:"154 Rue de Rome",desc:"Nettoyage",cat:"nettoyage"},
+{id:"160121850090",name:"SFM - Société Française Multi-services",city:"Aix-en-Provence",zip:"13290",lat:43.538,lng:5.424,address:"255 Av. Galilée",desc:"Nettoyage",cat:"nettoyage"},
+{id:"158582883527",name:"PRO IMPEC Dunkerque",city:"Coudekerque-Branche",zip:"59210",lat:51.023,lng:2.398,address:"2 Rte de Bergues",desc:"Nettoyage",cat:"nettoyage"},
+{id:"159222015219",name:"AXEO Services",city:"Lille",zip:"59800",lat:50.631,lng:3.072,address:"16 rue de Metz",desc:"Nettoyage",cat:"nettoyage"},
+{id:"159221980384",name:"Propre Addict",city:"Villeneuve-d'Ascq",zip:"59493",lat:50.634,lng:3.145,address:"12 Rue du Chemin Vert",desc:"Nettoyage",cat:"nettoyage"},
+{id:"158554932473",name:"Cleango Services Nettoyage & Propreté",city:"Rueil-Malmaison",zip:"92500",lat:48.877,lng:2.184,address:"22 Rue Camille St Saens",desc:"Nettoyage",cat:"nettoyage"},
+{id:"158481955011",name:"Grand-nettoyage Grand-débarras",city:"Drancy",zip:"93700",lat:48.932,lng:2.443,address:"48 rue Roger Petieu",desc:"Nettoyage et débarras",cat:"nettoyage"},
+{id:"158431344826",name:"Macé Demenagement",city:"MORDELLES",zip:"35310",lat:48.046,lng:-1.811,address:"13 RUE DE LA CROIX IGNON",website:"www.bretagne-mace-demenagement.com",desc:"Déménageurs Bretagne",banned:true,cat:"demenagement"},
+{id:"158431327454",name:"nettoyage 360",city:"paris",zip:"75018",lat:48.895,lng:2.35,address:"21B Rue du Simplon",desc:"Société de nettoyage",banned:true,cat:"nettoyage"},
+{id:"158416207058",name:"KTK Transport et Déménagement",city:"BROUSSES-ET-VILLARET",zip:"11390",lat:43.383,lng:2.311,address:"3 CHEMIN DE LA ROQUE",desc:"Déménageurs Carcassonne",cat:"demenagement"},
+{id:"158238471406",name:"STORY DEM",city:"PARIS",zip:"75017",lat:48.883,lng:2.312,address:"9 RUE ANATOLE DE LA FORGE",desc:"Déménagement Paris",cat:"debarras"},
+{id:"149828812012",name:"Go Trans Dem",city:"CRETEIL",zip:"94000",lat:48.783,lng:2.454,address:"17 BOULEVARD PABLO PICASSO",website:"gotransdem.fr",desc:"30m3 + 2x20m3",banned:true,cat:"demenagement"},
+{id:"148712361208",name:"GD services",city:"Liévin",zip:"62800",lat:50.421,lng:2.779,address:"21 Rue Alain Fournier",desc:"Débarras et nettoyage — dép. 59",cat:"debarras"},
+{id:"145010651365",name:"AMINI TRANSPORT",city:"ATHIS-MONS",zip:"91200",lat:48.709,lng:2.389,address:"9 QUAI DE SEINE",website:"aminitransport.fr",desc:"Déménageur IDF",cat:"demenagement"},
+{id:"143961616596",name:"CRISCLEAN",city:"Marseille",zip:"13015",lat:43.348,lng:5.361,desc:"Société de nettoyage — 3 personnes",cat:"nettoyage"},
+{id:"143818837195",name:"BESSA DÉBARRAS",city:"NANTERRE",zip:"92000",lat:48.834,lng:2.244,address:"119 av Pablo Picasso",desc:"Débarras",cat:"debarras"},
+{id:"143809068278",name:"DEMENAGEMENT CHRONO SERVICE",city:"ORLY",zip:"94310",lat:48.735,lng:2.392,address:"11 SQUARE SAVORGNAN DE BRAZZA",desc:"Déménageur IDF",cat:"demenagement"},
+{id:"142438919381",name:"NET 59 - Elodie DUQUESNOY",city:"DOUAI",zip:"59500",lat:50.369,lng:3.079,address:"4608 Route de Tournai",desc:"Nettoyage — dép. 59 et 62",cat:"nettoyage"},
+{id:"142207532262",name:"CTM",city:"GRIGNY",zip:"91350",lat:48.649,lng:2.35,address:"13 RUE JEAN-JACQUES ROUSSEAU",desc:"Transport + déménagement -3.5t",cat:"demenagement"},
+{id:"142207526135",name:"VIF PRO",city:"MONTATAIRE",zip:"60160",lat:49.276,lng:2.441,address:"73 RUE JEAN JAURES",desc:"Transport + déménagement",cat:"demenagement"},
+{id:"141701246200",name:"SHAYDESS JAJA CLEANUP",city:"Mont-Saint-Aignan",zip:"76130",lat:49.455,lng:1.076,address:"35 Rue du Maréchal Juin",desc:"Nettoyage — IDF et Normandie",cat:"nettoyage"},
+{id:"141750844658",name:"Tima services",city:"Boulogne-Billancourt",zip:"92100",lat:48.834,lng:2.244,desc:"Nettoyage",cat:"nettoyage"},
+{id:"141588928720",name:"DEMENAGEMENT RAPIDE",city:"TARASCON",zip:"13150",lat:43.804,lng:4.66,address:"19 RUE DES FORGERONS",desc:"Transport déménagement -3t5 — garde-meuble",cat:"demenagement"},
+{id:"137678622945",name:"NEXTDEM",city:"LA VILLE-AUX-DAMES",zip:"37700",lat:47.383,lng:0.779,address:"5 RUE MARIE DE LORRAINE",website:"nextdem.fr",desc:"Déménageur Tours 37000",banned:true,cat:"demenagement"},
+{id:"136018157799",name:"Dolydem Demenagement",city:"Vernouillet",zip:"78540",lat:48.968,lng:1.974,address:"31 Rue de la Grosse Pierre",website:"dolydem.fr",desc:"Déménageur Paris — toute la France",banned:true,cat:"demenagement"},
+{id:"132195032281",name:"SPEED 59",city:"LILLE",zip:"59800",lat:50.631,lng:3.072,address:"34 PLACE DU GENERAL DE GAULLE",desc:"Déménageur Lille",banned:true,cat:"demenagement"},
+{id:"132194943180",name:"RAYANDEM54",city:"VANDŒUVRE-LES-NANCY",zip:"54500",lat:48.659,lng:6.164,address:"36 RUE JEAN MERMOZ",website:"www.rayandem54.fr",desc:"54 — monte-meuble + box de stockage",banned:true,cat:"demenagement"},
+{id:"132194728178",name:"AVI DEMENAGEMENT",city:"GRENOBLE",zip:"38000",lat:45.188,lng:5.724,address:"5 RUE RAYMOND BANK",desc:"33m3 + 25m3 + garde-meubles",cat:"demenagement"},
+{id:"130926485694",name:"Express Décor",city:"Saint-Raphaël",zip:"83700",lat:43.417,lng:6.769,address:"725 BOULEVARD de la Paix",desc:"Débarras et nettoyage",cat:"debarras"},
+{id:"130786595051",name:"MDD débarras",city:"VITRY-SUR-SEINE",zip:"94400",lat:48.789,lng:2.396,address:"7 Rue des frères Poirier",desc:"Débarrasseur",cat:"debarras"},
+{id:"129062243556",name:"TEMIZ Propreté",city:"Le Pouzin",zip:"07250",lat:44.723,lng:4.745,address:"94 Rue Marcel Pagnol",desc:"Société de nettoyage",cat:"nettoyage"},
+{id:"129062030527",name:"OURA TRANSPORT",city:"NEUILLY-SUR-SEINE",zip:"92200",lat:48.886,lng:2.269,address:"99 AVENUE ACHILLE PERETTI",desc:"Travaille sur 08-02-59",cat:"demenagement"},
+{id:"129061733593",name:"SAM'DEMENAGE",city:"BORDEAUX",zip:"33000",lat:44.836,lng:-0.578,address:"7 ALLEE DE CHARTRES",website:"www.samdemenage.fr",desc:"Déménageur Bordeaux",cat:"demenagement"},
+{id:"128740626650",name:"AIR DEMENAGEMENT",city:"MERIGNAC",zip:"33700",lat:44.837,lng:-0.7,address:"14 CHEMIN DE LA POUDRIERE",website:"air-demenagement.fr",desc:"Déménageurs Bordeaux",cat:"demenagement"},
+{id:"122219898045",name:"Vintage 73",city:"Poncin",zip:"01450",lat:46.101,lng:5.396,desc:"Débarrasseur",cat:"debarras"},
+{id:"121780954359",name:"T2M Demenagement",city:"Dagneux",zip:"01120",lat:45.834,lng:5.283,address:"259 rue des Chartinières",website:"www.t2m-demenagement.com",desc:"Grande société — 01 et 77",cat:"demenagement"},
+{id:"121377690872",name:"TN SERVICES EXPRESS",city:"ROUEN",zip:"76100",lat:49.426,lng:1.063,address:"10 RUE MARQUIS",desc:"Déménageur Normandie",cat:"demenagement"},
+{id:"118928828625",name:"SO TRANSPORT",city:"TOURNEFEUILLE",zip:"31170",lat:43.586,lng:1.336,address:"10 IMPASSE DU PRAT",desc:"20m3 + 12m3",cat:"demenagement"},
+{id:"118086935786",name:"Sos Transport Nancy",city:"Nancy",zip:"54100",lat:48.691,lng:6.181,address:"7 Rue de la Bergamote",desc:"Déménagement Grand Est",banned:true,cat:"demenagement"},
+{id:"116473381068",name:"Nicolat PIAT",city:"BORDEAUX",zip:"33000",lat:44.836,lng:-0.578,phone:"+330652925248",desc:"Débarrasseur",cat:"debarras"},
+{id:"116472640757",name:"AE Services SARL",city:"Hésingue",zip:"68220",lat:47.595,lng:7.504,address:"50 Rue de Folgensbourg",desc:"Débarrasseur",cat:"debarras"},
+{id:"116473243858",name:"HV TRANSPORT DEMENAGEMENT",city:"CHOMERAC",zip:"07210",lat:44.714,lng:4.72,address:"313 ROUTE DE PRIVAS",desc:"Poids lourd 70m3",cat:"demenagement"},
+{id:"115030013126",name:"SCS Déménagement",city:"Issy-les-Moulineaux",zip:"92130",lat:48.824,lng:2.275,address:"12 Rue René Jacques",website:"scsdemenagement.fr",desc:"Déménagement + débarras 92",cat:"demenagement"},
+{id:"113853677806",name:"Aly Nettoyage",city:"PARIS",zip:"75013",lat:48.831,lng:2.362,address:"119 rue Léon-Maurice Nordmann",desc:"Nettoyeur",cat:"nettoyage"},
+{id:"112870560975",name:"STORNE",city:"Paris",zip:"75018",lat:48.895,lng:2.35,address:"16 RUE DAMREMONT",desc:"Nettoyeur",cat:"debarras"},
+{id:"112789582047",name:"TransporTa",city:"Deuil-La-Barre",zip:"95170",lat:48.974,lng:2.331,address:"13T Rue Abel Fauveau",website:"transporta.fr",desc:"Transport et relocations",cat:"demenagement"},
+{id:"107832761572",name:"RE MOVE",city:"QUINCIEUX",zip:"69650",lat:45.92,lng:4.817,address:"233 ROUTE DU GRAND VEISSIEUX",desc:"3 camions 11/6/20m3 — 69/01/42",banned:true,cat:"demenagement"},
+{id:"107115043005",name:"AG EXPRESS",city:"Sallaumines",zip:"62430",lat:50.453,lng:2.93,address:"263 Rue Florent Evrard",desc:"Déménagement 80-59-60-02",cat:"demenagement"},
+{id:"106524957916",name:"DEBARRAS TRENTE SIX",city:"SAINT-MAUR",zip:"36250",lat:46.782,lng:1.943,address:"13 RUE GEORGES ROBERT",desc:"Débarras et revente",cat:"debarras"},
+{id:"105393127632",name:"LOCADEM",city:"SAINT-GENIES-DE-MALGOIRES",zip:"30190",lat:43.943,lng:4.225,address:"17 AVENUE DES ECOLES",desc:"Déménagement",cat:"demenagement"},
+{id:"100417118426",name:"David GAUGLIN",city:"ERMENONVILLE-LA-GRANDE",zip:"28120",lat:48.293,lng:1.232,address:"19B rue de la Fontaine",desc:"Débarrasseur",cat:"debarras"},
+{id:"100135611591",name:"PROZALYS SERVICE",city:"SOTTEVILLE LES ROUEN",zip:"76300",lat:49.408,lng:1.083,address:"40 rue de l'union",desc:"Nettoyage et débarras",cat:"debarras"},
+{id:"99997896929",name:"aldademenagement.fr",city:"Montreuil",zip:"93100",lat:48.862,lng:2.444,address:"6 Rue de Villiers",website:"aldademenagement.fr",desc:"3 camions de 30m3",cat:"demenagement"},
+{id:"99211835599",name:"MD demenagement",city:"OSNY",zip:"95520",lat:49.069,lng:2.075,address:"78 RUE ROBINET",desc:"Déménageur 34+12+11+81+30",cat:"demenagement"},
+{id:"98757916917",name:"Anthony DAVID",city:"DOMLOUP",zip:"35410",lat:48.043,lng:-1.547,address:"12 rue du Petit Bois",desc:"Débarrasseur",cat:"debarras"},
+{id:"98757894386",name:"dempro.fr",city:"Montmagny",zip:"95360",lat:48.971,lng:2.343,address:"20 Rue Auguste Et Gustave Perret",website:"dempro.fr",desc:"5 camions",cat:"demenagement"},
+{id:"97782827205",name:"Societe h2h nettoyage",city:"Montpellier",zip:"34000",lat:43.611,lng:3.877,desc:"Débarras et nettoyage",cat:"debarras"},
+{id:"97461355733",name:"Abvintage-Debarras",city:"VIC-LE-COMTE",zip:"63270",lat:45.606,lng:3.168,address:"14 Résidence Le Clos des Mottes",desc:"Débarrasseur et nettoyeur",cat:"debarras"},
+{id:"95968783608",name:"Logis Pur",city:"Angers",zip:"49000",lat:47.471,lng:-0.554,address:"76 rue de Frémur",website:"logis-pur.fr",desc:"Ménage et services à domicile",cat:"nettoyage"},
+{id:"94858601674",name:"Cmontransport",city:"Villeneuve d'Ascq",zip:"59650",lat:50.621,lng:3.124,address:"2 allée des crocus",website:"cmontransport.com",desc:"Hauts de France",cat:"demenagement"},
+{id:"91348698321",name:"Les Déménagements NESSI",city:"Nouvoitou",zip:"35410",lat:48.043,lng:-1.547,address:"13 rue Gustave Eiffel",website:"lesdemenagementsnessi.fr",desc:"Solutions de déménagement",cat:"demenagement"},
+{id:"90480958681",name:"LEDATRANS",city:"ROMAINVILLE",zip:"93230",lat:48.88,lng:2.432,address:"175 RUE PAUL DE KOCK",desc:"Déménageurs Lille-Paris-Caen",cat:"demenagement"},
+{id:"88760642752",name:"GOURAYA DEMENAGEMENT",city:"Antony",zip:"92160",lat:48.754,lng:2.297,address:"1 Rue Georges Besse",website:"gouraya-demenagement.fr",desc:"Déménagement pro et particuliers",banned:true,cat:"demenagement"},
+{id:"90425071828",name:"D.Bara",city:"Chambery",zip:"73000",lat:45.564,lng:5.917,address:"65 Rue Fodéré",desc:"Débarrasseur",cat:"debarras"},
+{id:"88198691023",name:"H2logistique",city:"Paris",zip:"75014",lat:48.831,lng:2.328,address:"4 rue DIDOT",website:"h2logistique.fr",desc:"Paris-Lyon-Lille-Bordeaux-Toulouse-Marseille",cat:"demenagement"},
+{id:"86851548409",name:"demenagement-ddtf",city:"SAINT-GEORGES-D'ORQUES",zip:"34680",lat:43.598,lng:3.793,address:"2 TRAVERSE DE LA FOSSE",website:"demenagement-ddtf.com",desc:"Société de déménagement",cat:"demenagement"},
+{id:"83323802852",name:"Les Mastodontes",city:"Paris",zip:"75008",lat:48.875,lng:2.31,address:"10 rue de penthievre",website:"mastodontes-transports.fr",desc:"6 camions 30/35m3 — IDF",cat:"demenagement"},
+{id:"83222787301",name:"alfa-services51.com",city:"Reims",zip:"51100",lat:49.258,lng:4.029,address:"7 place Argonautes",website:"alfa-services51.com",desc:"20+15+6m3 — toute la France",cat:"demenagement"},
+{id:"83078361328",name:"VF NET",city:"Grenoble",zip:"38100",lat:45.166,lng:5.722,address:"11 Avenue Paul Verlaine",phone:"+33636469538",desc:"Débarras + nettoyage",cat:"debarras"},
+{id:"83205663986",name:"LMJ PACA TRANSPORT",city:"PLAN-D'AUPS-SAINTE-BAUME",zip:"83640",lat:43.356,lng:5.706,address:"161 ALLEE DU JAS",desc:"Var 83+13",banned:true,cat:"demenagement"},
+{id:"81455162609",name:"Beci nettoyage",city:"Amberieu en Bugey",zip:"01500",lat:45.957,lng:5.348,address:"84 rue Alexandre Berard",phone:"+33699445817",desc:"Nettoyage et débarras",cat:"debarras"},
+{id:"79626245320",name:"Martinique Déménagements",city:"Ducos",zip:"97224",lat:14.618,lng:-61.018,address:"ZI de Champigny",website:"martinique-demenagements.fr",desc:"Déménagement Martinique",cat:"demenagement"},
+{id:"77932773585",name:"Nettoyage Xtr'Aisne",city:"Autreville",zip:"02300",lat:49.658,lng:3.393,address:"14 rue Ann Morgan",desc:"Nettoyeur et débarrasseur",cat:"debarras"},
+{id:"77932653796",name:"AK-SERVICES",city:"MONTFERMEIL",zip:"93370",lat:48.893,lng:2.559,address:"23 AVENUE MARCEL DASSAULT",desc:"Débarras et nettoyage",banned:true,cat:"nettoyage"},
+{id:"77933359346",name:"ISSAC TRANS",city:"Rouen",zip:"76000",lat:49.443,lng:1.099,address:"9 Rue Georges Braque",website:"issactrans.fr",desc:"15 camions 12/15/20/30m3",cat:"demenagement"},
+{id:"77745762526",name:"Association Help Familles",city:"SARTROUVILLE",zip:"78500",lat:48.937,lng:2.166,address:"68 RUE DE LA FRETTE",desc:"Accompagnement + débarras + petit dem",banned:true,cat:"debarras"},
+{id:"76916281590",name:"Société Folliday's",city:"École-Valentin",zip:"25480",lat:47.273,lng:5.975,address:"13 Chem. des Fermes",desc:"Débarrasseur",cat:"debarras"},
+{id:"77176889530",name:"Les Porteurs Parisiens",city:"Villepinte",zip:"93420",lat:48.964,lng:2.554,address:"154 Allée des Erables",website:"les-porteurs-parisiens.fr",desc:"Transport objets lourds — Paris IDF",cat:"demenagement"},
+{id:"77176883412",name:"PRONET SERVICES",city:"Mérignac Cedex",zip:"33701",lat:44.837,lng:-0.7,address:"26 Avenue Gustave Eiffel",desc:"Débarrasseur + nettoyeur",cat:"debarras"},
+{id:"76622428375",name:"AD ALPES",city:"Grenoble",zip:"38100",lat:45.166,lng:5.722,address:"26 Rue Leconte de Lisle",website:"adalpes.fr",desc:"5 camions — toute la France",cat:"demenagement"},
+{id:"72890522818",name:"ATLANTIQUE TRANSPORT EXPRESS",city:"Orvault",zip:"44700",lat:47.27,lng:-1.62,address:"17 RUE DU CHAR A BANCS",desc:"Déménagement débarras nettoyage 44-35-49",cat:"demenagement"},
+{id:"61010895049",name:"TRANSPORTS DUBUS",city:"BEAUMONT-EN-BEINE",zip:"02300",lat:49.658,lng:3.393,address:"38 RUE DU VILLAGE",desc:"60+20+10m3",banned:true,cat:"demenagement"},
+{id:"56629673180",name:"BRAFA TRANS",city:"BOULOGNE-BILLANCOURT",zip:"92100",lat:48.834,lng:2.244,address:"22 RUE CARNOT",desc:"Société fermée",banned:true,cat:"demenagement"},
+{id:"55812636903",name:"Trans Lider Déménagement",city:"Ris Orangis",zip:"91130",lat:48.654,lng:2.413,address:"8 Avenu du Front Populaire",website:"transliderdemenagement.fr",desc:"2 VL 14+25m3 + 2 camions 50+60m3",banned:true,cat:"demenagement"},
+{id:"53890710753",name:"AAO Transports",city:"Rueil-Malmaison",zip:"92500",lat:48.877,lng:2.184,address:"45 Rue des Mazurières",desc:"Déménageur France + DOM TOM",banned:true,cat:"demenagement"},
+{id:"52768819415",name:"Plaza Demenagement",city:"Marseille",zip:"13001",lat:43.298,lng:5.378,address:"18 Boulevard National",phone:"+33751343034",website:"plazademenagement.fr",desc:"Services de déménagement",cat:"demenagement"},
+{id:"51855050947",name:"flash-livraison.com",city:"Champs-sur-Marne",zip:"77420",lat:48.84,lng:2.605,address:"13 Rue Pierre Weczerka",website:"flash-livraison.com",desc:"Transport et déménagement France",banned:true,cat:"demenagement"},
+{id:"51855042763",name:"LESOURD ANTOINE",city:"SAINT-BERTHEVIN",zip:"53940",lat:48.168,lng:-0.797,address:"15 RUE DE LA GOBERIE",desc:"Débarras vide-maison déménagement",cat:"demenagement"},
+{id:"49757416637",name:"MELLITA TRANS",city:"LES ULIS",zip:"91940",lat:48.697,lng:2.165,address:"25 RESIDENCE DE LA VAUCOULEUR",desc:"3 camions 20m3 — 35-56-22-44-53",banned:true,cat:"demenagement"},
+{id:"45973021892",name:"Chris Dem 31",city:"EAUNES",zip:"31600",lat:43.533,lng:1.529,address:"560 Bis chemin du Jouliou",phone:"+33626461282",website:"chrisdem31.com",desc:"31-09-66-11",cat:"demenagement"},
+{id:"41354893504",name:"CK Transport Nancy",city:"CHAMPENOUX",zip:"54280",lat:48.78,lng:6.356,address:"7 RUE DU 13 SEPTEMBRE",website:"ck-transport.fr",desc:"7x20m3 Nancy",cat:"demenagement"},
+{id:"40194542799",name:"DEMENAGEMENT NORMANDIE",city:"Saint-Jacques sur Darnétal",zip:"76160",lat:49.411,lng:1.208,address:"80 ZAC de la Briqueterie",website:"demenagementnormandie.fr",desc:"3 VL",cat:"demenagement"},
+{id:"36287402177",name:"Eagle Europe Services",city:"Aubervilliers",zip:"93001",lat:48.912,lng:2.384,address:"143 Avenue Victor Hugo",website:"eagle-europe.fr",desc:"Last-mile delivery et déménagement",banned:true,cat:"demenagement"},
+{id:"34583558338",name:"Mouv & Log",city:"Blagnac",zip:"31700",lat:43.636,lng:1.394,address:"7 Avenue Didier Daurat",website:"mouvandlog.com",desc:"Déménagement logistique pro",cat:"demenagement"},
+{id:"34425370811",name:"my way transport",city:"Nancy",zip:"54130",lat:48.706,lng:6.208,address:"44 Rue de la Haie le Comte",desc:"Déménageur 54",cat:"demenagement"},
+{id:"33889162464",name:"ABB express",city:"lyon",zip:"69007",lat:45.736,lng:4.829,address:"56 Avenue Leclerc",desc:"Déménageur Lyon",cat:"demenagement"},
+{id:"33889045691",name:"Cedric Services",city:"Caumont-l'Éventé",zip:"14240",lat:49.094,lng:-0.822,address:"247 Impasse de la Triquetrie",desc:"Déménagement 14",cat:"demenagement"},
+{id:"27057379553",name:"Solution Débarras",city:"valence",zip:"26000",lat:44.933,lng:4.892,desc:"Débarrasseur",cat:"debarras"},
+{id:"27013097699",name:"Bou express",city:"Talence",zip:"33400",lat:44.808,lng:-0.591,address:"rue auguste renoir",desc:"2 camions 17 et 20m3",cat:"demenagement"},
+{id:"26903306441",name:"AEN DEMENAGEMENT",city:"Grenoble",zip:"38100",lat:45.166,lng:5.722,address:"8 rue Claude Kogan",phone:"+33664887952",website:"demenagements-grenoble.fr",desc:"Monte-meuble — 3 camions",cat:"demenagement"},
+{id:"25254495453",name:"EPDEM",city:"Saint-Jean-Pla-de-Corts",zip:"66490",lat:42.519,lng:2.949,address:"1 Rue de la Teula",website:"epdem.fr",desc:"Location de camions pour déménagements",cat:"demenagement"},
+{id:"21348437178",name:"les dem du sud ouest",city:"Gradignan",zip:"33170",lat:44.772,lng:-0.616,address:"9 Av. de la Madeleine",website:"lesdemenageursdusudouest.fr",desc:"Déménagement — départ Sud Ouest",banned:true,cat:"demenagement"},
+{id:"20034278871",name:"SIRCA DEMENAGEMENT",city:"Blagnac",zip:"31700",lat:43.636,lng:1.394,address:"17 Av. Didier Daurat",website:"sirca-demenagement.fr",desc:"Déménagement local/national 31000",banned:true,cat:"demenagement"},
+{id:"19264823272",name:"GK24",city:"dordogne",zip:"24000",lat:45.184,lng:0.721,website:"gk-24.fr",desc:"Débarras et déménagement 12m3",cat:"debarras"},
+{id:"18902281147",name:"SC Express Déménagement",city:"Paris",zip:"93430",lat:48.917,lng:2.331,address:"4 Rue Roger Salengro",website:"scexpressdemenagement.com",desc:"Déménagements nationaux/internationaux",cat:"demenagement"},
+{id:"18616697032",name:"ACS moving",city:"paris",zip:"94800",lat:48.79,lng:2.348,address:"107 Rue Ambroise Croizat",desc:"Paris et alentours",cat:"demenagement"},
+{id:"16926794172",name:"les déménageurs européens",city:"VILLEURBANNE",zip:"69100",lat:45.775,lng:4.882,address:"142 Cours Tolstoi",phone:"+33695838174",website:"lesdemenageurseuropeens.net",desc:"Europe et international",cat:"demenagement"},
+{id:"16926771913",name:"Transcausse Demimpex",city:"Marseille",zip:"13016",lat:43.359,lng:5.33,address:"521 Chem. du Littoral",phone:"+33491131528",website:"tddem.fr",desc:"Spécialiste international — 30 ans",banned:true,cat:"demenagement"},
+{id:"16714537961",name:"DGM Veron Grauer",city:"Genève",zip:"1214",lat:46.237,lng:6.096,address:"Chem. Grenet 24",phone:"+41227326440",website:"veron-grauer.ch",desc:"Déménagement Genève — 150 ans",banned:true,cat:"demenagement"},
+{id:"16684454899",name:"OLSYM DEMENAGEMENT",city:"Macon",zip:"71000",lat:46.306,lng:4.828,address:"3 Rue Berty Albrecht",phone:"+33780748962",website:"olsymdemenagement.fr",desc:"1x20m3 + 1x27m3 — rayon 300km",banned:true,cat:"demenagement"},
+{id:"16714515949",name:"ASENO",city:"SOUCIEU-EN-JARREST",zip:"69510",lat:45.683,lng:4.717,address:"2 ROUTE DU COQ GAULOIS",desc:"69+42+01+74 — 30m3",cat:"debarras"},
+{id:"16617272765",name:"Dylan débarras",city:"gondponotouvre",zip:"16160",lat:45.67,lng:0.234,address:"18 rue marceau",website:"www.dylan-debarras.fr",desc:"Débarras 16+86+17+79",cat:"debarras"},
+{id:"15367080669",name:"Demeworld",city:"Lyon",zip:"69000",lat:45.757,lng:4.832,phone:"+33614440501",website:"demeworld.com",desc:"Déménagement international door-to-door",cat:"demenagement"},
+{id:"14570076632",name:"Déménagements Giraud",city:"Vaulx-en-Velin",zip:"69120",lat:45.773,lng:4.916,address:"8 Rue Sigmund Freud",phone:"+33611142512",website:"DéménagementsGiraud.fr",desc:"40 camions — garde-meuble — monte-meuble",cat:"demenagement"},
+{id:"14334562775",name:"zetransports.fr",city:"Payrignac",zip:"46300",lat:44.745,lng:1.43,address:"Rte des Ouillères",website:"Zetransports.fr",desc:"5 camions — 3x30m3 + 2x25m3",cat:"demenagement"},
+{id:"13652023528",name:"Tremblaye Déménagements",city:"Saint-Saturnin",zip:"72650",lat:48.029,lng:0.124,address:"1 Rue de l'Océane",website:"agence.fidem-tremblaye.com",desc:"50 ans — 72/53/49/44/37/28",cat:"demenagement"},
+{id:"13516407495",name:"France Déménagement",city:"Chambéry",zip:"73000",lat:45.564,lng:5.917,address:"42 Rue du Pré Demaison",website:"france-demenagement.group",desc:"Local national international — 73/74/83",cat:"demenagement"},
+{id:"13442349559",name:"demenageurs 63",city:"Cébazat",zip:"63118",lat:45.817,lng:3.113,address:"13 Rue Lucie et Raymond Aubrac",website:"demenageurs63.com",desc:"10 et 25m3",banned:true,cat:"demenagement"},
+{id:"13423380419",name:"Déménagement La fourmi rose",city:"Toulouse",zip:"31200",lat:43.629,lng:1.434,address:"203 Av. de Fronton",desc:"25m3 + 10m3",banned:true,cat:"demenagement"},
+{id:"13117742304",name:"VBT",city:"SAINT-MARTIN-D'HERES",zip:"38400",lat:45.178,lng:5.762,address:"17 rue Alphonse Daudet",website:"vbt-demenagement.fr",desc:"Déménagement débarras transport — 38/73/74/01/69",cat:"demenagement"},
+{id:"13090738630",name:"JP Services",city:"Bourbourg",zip:"59630",lat:50.945,lng:2.197,address:"4 Rue des Cossettes",desc:"Nettoyage + débarras + déménagement 59+62+80",cat:"demenagement"},
+{id:"12982124516",name:"Nova Logistique",city:"Saint-Priest",zip:"69800",lat:45.7,lng:4.944,address:"40 Bd Edouard Herriot",desc:"Navette Lyon Marseille",cat:"demenagement"},
+{id:"12897612986",name:"Fidess-Demenagement",city:"carriere sur seine",zip:"78420",lat:48.917,lng:2.18,address:"5 rue des entrepreneurs",website:"fidess-demenagement.fr",desc:"Déménagement 10 ans d'expérience",cat:"demenagement"},
+{id:"12674973932",name:"Alteka Déménagements",city:"puilboreau",zip:"17138",lat:46.144,lng:-1.069,address:"18 rue du treuil moulinier",website:"demenagement-alteka.com",desc:"Petits volumes 17-85",cat:"demenagement"},
+{id:"12633614783",name:"Demelogis",city:"Nîmes",zip:"30900",lat:43.839,lng:4.362,address:"836 Avenue Joliot Curie",desc:"30+84+13",cat:"demenagement"},
+{id:"12537430743",name:"Lateulade Déménagement Pau",city:"Serres-Castet",zip:"64121",lat:43.378,lng:-0.327,address:"IMP DE POMBIE",phone:"+33559332065",website:"lateulade.com",desc:"6VL + 1 PL — garde-meuble — Paris-Pau-Bayonne",cat:"demenagement"},
+{id:"12522773478",name:"Theocoursing",city:"saint etienne",zip:"42400",lat:45.46,lng:4.443,address:"6 Chem. d'Ocharra",website:"theocoursing.com",desc:"Déménagement express — St Etienne et Lyon",cat:"demenagement"},
+{id:"12451845844",name:"Oriente express",city:"bastia",zip:"20230",lat:42.418,lng:9.495,address:"160 Montée des Trente",website:"demenagement-orienteexpress.com",desc:"Déménagement Corse <-> continent",cat:"demenagement"},
+{id:"12447406300",name:"BNB net",city:"Paris",zip:"93000",lat:48.916,lng:2.358,address:"58 RUE DU GOULET",desc:"Nettoyage",cat:"nettoyage"},
+{id:"12355098861",name:"BMS transport",city:"Paris",zip:"75020",lat:48.864,lng:2.4,address:"13 RUE DES MURIERS",desc:"Déménagement",cat:"demenagement"},
+{id:"12271005930",name:"Ziari nettoyage",city:"MILLAU",zip:"12100",lat:44.099,lng:3.078,address:"31 RUE DU BARRY",desc:"Nettoyage et débarras",cat:"debarras"},
+{id:"12187197416",name:"LIVRADOMISSI",city:"Allaire",zip:"56350",lat:47.643,lng:-2.18,address:"321 Rue des Grandes Clôtures",desc:"Toute la Bretagne — VL 20m3",cat:"demenagement"},
+{id:"12121869303",name:"TRANSPORTS ALEX EXPRESS",city:"Bordeaux",zip:"33300",lat:44.873,lng:-0.566,address:"46 RUE DUPLEIX",website:"alex-demenagement.fr",desc:"Axe 33+40+47",cat:"demenagement"},
+{id:"12097077988",name:"m&t services vertou",city:"Nante",zip:"44120",lat:47.169,lng:-1.47,address:"25 Av. de la Vertonne",website:"vertou.fr",desc:"2x23m3 — Nantes 44+49+35",cat:"demenagement"},
+{id:"12060544719",name:"KBR TRANS",city:"VILLEPINTE",zip:"93420",lat:48.964,lng:2.554,address:"9 Rue George Sand",desc:"Déménageur Pro",cat:"demenagement"},
+{id:"12046890703",name:"EURO DÉMÉNAGEMENT",city:"Paris",zip:"91130",lat:48.654,lng:2.413,address:"3 Rue Jules Guesde",desc:"30m3+20m3 — MM et entrepôt",cat:"demenagement"},
+{id:"11964242396",name:"AMR demenagement",city:"paris",zip:"75008",lat:48.875,lng:2.31,address:"10 rue penthievre",desc:"2x20m3 — IDF",cat:"demenagement"},
+{id:"11918578111",name:"les 3 FEE DU Rhone",city:"lyon",zip:"69110",lat:45.739,lng:4.879,address:"5 RUE CHANTOISEAU",desc:"Déménagement + débarras + nettoyage 12+20m3",cat:"demenagement"},
+{id:"11841857500",name:"Ac Coursing",city:"Montpellier",zip:"34070",lat:43.608,lng:3.877,address:"48 Rue Claude Balbastre",desc:"34+13+11+84 — 2x25m3",cat:"demenagement"},
+{id:"11840005088",name:"EL MOUTASSADDIK MOHAMED",city:"marseille",zip:"13002",lat:43.305,lng:5.366,address:"43 RUE PIERRE ALBRAND",desc:"12m3 — 13/83/06/84/05",cat:"demenagement"},
+{id:"11826694391",name:"SLD",city:"Brest",zip:"29000",lat:48.39,lng:-4.486,address:"7 SQ DU POITOU",desc:"Déménagement + débarras + livraison",banned:true,cat:"demenagement"},
+{id:"11801454530",name:"NETCLEAN",city:"Nimes",zip:"30100",lat:44.128,lng:4.082,address:"11 rue du Commandant Audibert",desc:"Nettoyage + débarras + déménagement",cat:"demenagement"},
+{id:"11795469770",name:"Ils sont La",city:"marseille",zip:"13113",lat:43.466,lng:5.244,address:"6 LOTISSEMENT LA TOUR",website:"ilssontla.fr",desc:"Déménagement entreprise et particulier",cat:"demenagement"},
+{id:"11794899397",name:"DEMIDOV",city:"Nantes",zip:"44000",lat:47.218,lng:-1.554,address:"26 Imp. de l'Oranda",website:"demidov-demenagement.com",desc:"2 camions 15m3 — départ Nantes",cat:"demenagement"},
+{id:"11794550471",name:"Yes-Debarras",city:"lyon",zip:"69005",lat:45.758,lng:4.819,address:"32 Rue Pauline-Marie Jaricot",website:"yes-debarras.fr",desc:"Débarras maison/appartement/cave — Lyon",cat:"debarras"},
+{id:"11793909489",name:"milan.car",city:"Cluses",zip:"74300",lat:46.06,lng:6.578,address:"301 Rue des Bergeronnettes",desc:"Déménageur Pro — 12 et 20m3",cat:"demenagement"},
+{id:"11730707643",name:"AG service",city:"Marseille",zip:"13012",lat:43.288,lng:5.421,address:"82 Bd de la Comtesse",website:"agservicesmarseill.wixsite.com",desc:"Déménageur — 20m3",cat:"demenagement"},
+{id:"11726871502",name:"Sim-Transports",city:"Nanterre",zip:"92000",lat:48.834,lng:2.244,address:"14 Rue du Port",desc:"2x30m3 + 1x20m3 + 1x60m3",banned:true,cat:"demenagement"},
+{id:"11726559442",name:"Moving Transport",city:"Lille",zip:"59000",lat:50.633,lng:3.058,address:"229 Rue Solférino",website:"www.movingtransport.fr",desc:"VL 20m3 — déménagement",cat:"demenagement"},
+{id:"11671457271",name:"Gan Andrey",city:"strasbourg",zip:"67000",lat:48.585,lng:7.75,address:"77 Grand'Rue",desc:"2 camions 12 et 23m3 — déménagement/débarras",cat:"demenagement"},
+{id:"11671895528",name:"Déménagements Delage",city:"Vars",zip:"16330",lat:45.831,lng:0.156,address:"PL DE LA GARE",website:"demenagements-delage.fr",desc:"Déménagement Charente",cat:"demenagement"},
+{id:"11654226424",name:"TRANS GHAZELLE",city:"Macon",zip:"71000",lat:46.306,lng:4.828,address:"172 RUE DU MURGERET",website:"Transportrafalexpress.fr",desc:"Déménageur",cat:"demenagement"},
+{id:"11651231680",name:"Helvetia Services",city:"La Plaine",zip:"1283",lat:46.151,lng:6.008,address:"Rte de Challex 6",website:"helvetiaservices.ch",desc:"Déménagement Suisse — national/international",cat:"demenagement"},
+{id:"11607528393",name:"Aml vtc",city:"Nantes",zip:"44300",lat:47.255,lng:-1.524,address:"5 rue de la Fantaisie",website:"amlvtc.fr",desc:"Déménageur",cat:"demenagement"},
+{id:"11597410800",name:"Movazur",city:"nice",zip:"06000",lat:43.71,lng:7.262,address:"37 Rue Clément Roassal",desc:"20m3 + monte-meuble — 83/13/84/06 + Corse",cat:"demenagement"},
+{id:"11584899266",name:"Demfret",city:"Paris",zip:"78000",lat:48.803,lng:2.135,address:"233 Route DU VEXIN",desc:"VL 25+20+12m3",cat:"demenagement"},
+{id:"11584621802",name:"Ananas Déménagement",city:"Tours",zip:"37000",lat:47.394,lng:0.685,address:"9 rue de Ville David",desc:"7/12/15/22m3",cat:"demenagement"},
+{id:"11540128242",name:"Transport K",city:"Dijon",zip:"21640",lat:47.176,lng:4.952,address:"11 bis Rue DU VIEUX CHATEAU",desc:"2 camions 20m3 — expert rallonge",cat:"demenagement"},
+{id:"11536676539",name:"Philippe Legrand",city:"lyon",zip:"69004",lat:45.773,lng:4.832,address:"16 Quai Joseph",phone:"+33782399221",website:"xldem.fr",desc:"20m3 + porteur 60m3",cat:"demenagement"},
+{id:"11535241445",name:"LORR EXPRESS DELIVERY",city:"Malzéville",zip:"54220",lat:48.722,lng:6.196,address:"46 Rue Gustave Nordon",desc:"Déménagement",cat:"demenagement"},
+{id:"11519391202",name:"DÉMÉNAGEMENT DEBARRAS TARBES",city:"Tarbes",zip:"65000",lat:43.234,lng:0.077,address:"11 Rue du Maquis de Payolle",desc:"Transport",cat:"demenagement"},
+{id:"11507078371",name:"odyssee demenagement",city:"Poggio-Mezzana",zip:"20230",lat:42.418,lng:9.495,address:"Lenza",desc:"Transport Corse",cat:"demenagement"},
+{id:"11449503169",name:"ALLIANCE TRANS DEM",city:"PARIS",zip:"75008",lat:48.875,lng:2.31,address:"10 RUE DE PENTHIÈVRE",desc:"Transport déménagement",cat:"demenagement"},
+{id:"11367896790",name:"LBG DEMENAGEMENTS",city:"Morbihan",zip:"56000",lat:47.658,lng:-2.76,address:"56450 SURZUR",website:"www.lbg-demenagements.fr",desc:"Partenaire",cat:"demenagement"},
+{id:"11213109440",name:"NRY transport",city:"Grenoble",zip:"38100",lat:45.166,lng:5.722,address:"72 Avenue Rhin et Danube",phone:"+33646237947",desc:"38/69/01/73/74 — 2VL",cat:"demenagement"},
+{id:"11185798586",name:"Haoui Transport",city:"JARVILLE-LA-MALGRANGE",zip:"54140",lat:48.659,lng:6.183,address:"4 SQ MAURICE BARRES",desc:"Déménagement",cat:"demenagement"},
+{id:"11076708058",name:"HHMF",city:"La Rochelle",zip:"17000",lat:46.16,lng:-1.151,address:"24 rue du Bastion Saint Nicolas",website:"hhmf.fr",desc:"Déménagement + débarras + nettoyage",cat:"demenagement"},
+{id:"10945256416",name:"Les 3D",city:"Vincennes",zip:"94306",lat:48.847,lng:2.439,address:"112 AVENUE DE PARIS",desc:"IDF et Paris — tout le matériel",cat:"demenagement"},
+{id:"406099970286",name:"CENTURY 21 Longchamp",city:"NANTES",zip:"44100",lat:47.237,lng:-1.557,address:"61 route de Vannes",phone:"+33240758888",website:"https://www.century21longchamp.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"405133190336",name:"ÉVOLUTION IMMOBILIÈRE",city:"Nice",zip:"06000",lat:43.71,lng:7.262,address:"2 Rue Amiral de Grasse",desc:"Agence immobilière",cat:"immobilier"},
+{id:"405125364947",name:"Grand Ours Immobilier",city:"Moulins",zip:"03000",lat:46.565,lng:3.332,address:"24 Rue de la Flèche",website:"www.grandoursimmo.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"402073745604",name:"Patricia Gomez Immobilier CASTRES",city:"Castres",zip:"81100",lat:43.605,lng:2.244,address:"11 Pl. Carnot",website:"www.patriciagomezimmobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"400321970421",name:"Pouillon Immobilier",city:"Pouillon",zip:"40350",lat:43.542,lng:-0.847,address:"104 Av. de la Liberté",phone:"+33558982388",website:"https://pouillon-immobilier.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"400266851568",name:"L'Agence de la Ville Rose",city:"Toulouse",zip:"31000",lat:43.604,lng:1.443,address:"9 Rue Saint-Antoine du T",website:"www.lagencedelavillerose.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"398604900592",name:"Vinel Immobilier",city:"Beaune",zip:"21200",lat:47.024,lng:4.84,address:"27 Rue Maizières",phone:"+33380241540",website:"https://valerievinelimmobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"397967269099",name:"Conseil Rive Gauche Paris 13",city:"Paris",zip:"75013",lat:48.831,lng:2.362,address:"38 Rue des Cinq Diamants",website:"https://conseilrivegauche.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"396790391024",name:"MW Immobilier Cap Ferret",city:"Lège-Cap-Ferret",zip:"33970",lat:44.707,lng:-1.135,address:"21 bis Rue des Fauvettes",phone:"+33557708977",website:"https://www.mwimmobilier.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"394890365121",name:"AGENCE SOTTET IMMOBILIER",city:"Bollène",zip:"84500",lat:44.276,lng:4.745,address:"29 Bd Victor Hugo",phone:"+33490301591",website:"https://sottet-immobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"393800398033",name:"Caranta Immobilier",city:"Sainte-Maxime",zip:"83120",lat:43.31,lng:6.637,address:"12 Rue de la Plage",website:"www.lydiecaranta-immobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"393094429903",name:"AMI 83",city:"Toulon",zip:"83000",lat:43.126,lng:5.929,address:"13 Rue Mirabeau",website:"ami83.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"390629088483",name:"AGENCE DE L'OCEAN",city:"Pénestin",zip:"56760",lat:47.502,lng:-2.484,address:"38 Rue du Calvaire",website:"www.ocean-immobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"387257280736",name:"Agence du Cap Immobilier",city:"Saint-Raphaël",zip:"83700",lat:43.417,lng:6.769,address:"200 Bd Félix Martin",website:"www.agenceducap-immobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"385737775306",name:"CENTURY 21 Mont-Blanc Invest Chamonix",city:"Chamonix-Mont-Blanc",zip:"74400",lat:45.924,lng:6.869,address:"117 Av. Ravanel le Rouge",website:"www.century21-mbi-chamonix.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"380455405795",name:"La Comtesse Immobilier",city:"Marseille",zip:"13012",lat:43.288,lng:5.421,address:"48 Rue Pierre Béranger",phone:"+33491544800",website:"https://www.lacomtesse.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"379296292081",name:"Couleurs Cezanne",city:"Grasse",zip:"06130",lat:43.659,lng:6.919,address:"3 Bd Victor Hugo",phone:"+33492609751",website:"https://cezanne-immobilier.net",desc:"Agence immobilière",cat:"immobilier"},
+{id:"385737768150",name:"Boan Immobilier",city:"Megève",zip:"74120",lat:45.856,lng:6.619,address:"40 Rue Ambroise Martin",website:"www.agenceboan.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"386652048630",name:"Guy Hoquet LYON 4",city:"Lyon",zip:"69004",lat:45.773,lng:4.832,address:"119 Bd de la Croix-Rousse",website:"lyon-4.guy-hoquet.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"383368903869",name:"IMMOVANCE",city:"Castelnau-le-Lez",zip:"34170",lat:43.63,lng:3.907,address:"55 Avenue Clément Ader",website:"www.immovance.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"379813018840",name:"ORPI Direct Habitat Villefranche",city:"VILLEFRANCHE SUR SAONE",zip:"69400",lat:45.989,lng:4.718,address:"65 rue de la sous Préfecture",website:"https://www.orpi-directhabitat.immo",desc:"Agence immobilière",cat:"immobilier"},
+{id:"394889597176",name:"Luberon Ventoux Gestion",city:"Mazan",zip:"84380",lat:44.05,lng:5.121,address:"211 Avenue de l'Europe",phone:"+33490295050",website:"https://www.luberon-ventoux.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"379433294025",name:"TRADITION SUD Immobilière",city:"Maussane-les-Alpilles",zip:"13520",lat:43.717,lng:4.804,address:"56 Av. de la Vall. des Baux",website:"traditionsud.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"381210648770",name:"AGENCE DE LA MER",city:"LA GRANDE MOTTE",zip:"34280",lat:43.555,lng:3.972,address:"11 rue Frederic MISTRAL",phone:"+33603615901",website:"http://www.agencedelamer.net",desc:"Agence immobilière",cat:"immobilier"},
+{id:"382082388209",name:"NANTES OUEST IMMOBILIER",city:"Saint-Herblain",zip:"44800",lat:47.237,lng:-1.636,address:"39 Av. de la Jonquière",website:"www.nantesouestimmobilier.fr",desc:"Agence immobilière",cat:"immobilier"},
+{id:"400426247385",name:"Agence Bonnet Immobilier",city:"Nyons",zip:"26110",lat:44.362,lng:5.139,address:"54 Pl. de la Libération",phone:"+33475260409",website:"bonnet-immobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"381580925171",name:"Plein Sud Immobilier - Agence ERA",city:"Marseillan",zip:"34340",lat:43.38,lng:3.53,address:"67 Av. de la Méditerranée",website:"www.pleinsudimmobilier.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"399427974344",name:"Calizi Immobilier",city:"L'Île-Rousse",zip:"20220",lat:42.638,lng:8.932,address:"Av. Joseph Calizi",phone:"+33495605496",website:"https://www.calizimmo.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"412536110272",name:"Reynaud Immobilier",city:"Annonay",zip:"07100",lat:45.239,lng:4.665,address:"20 Rue Sadi Carnot",phone:"0475679755",website:"https://www.immobilier-reynaud.net",desc:"Agence immobilière",cat:"immobilier"},
+{id:"381347168472",name:"GADEL Immo",city:"Saint-Sébastien-sur-Loire",zip:"44230",lat:47.175,lng:-1.503,address:"29 Rue Maurice Daniel",website:"gadelimmobilier.arthurimmo.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"396430817527",name:"Agence Villa d'Ouest Suresnes",city:"Suresnes",zip:"92150",lat:48.867,lng:2.23,address:"27 Av. du Général Charles de Gaulle",phone:"+33141180102",website:"https://www.villadouest.net",desc:"Agence immobilière",cat:"immobilier"},
+{id:"393801134296",name:"Cabinet Charles Martel",city:"Châtellerault",zip:"86100",lat:46.819,lng:0.542,address:"17 AV John Kennedy",phone:"+33549855709",website:"https://charles-martel.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"409431896261",name:"Agence Gauter",city:"Auray",zip:"56400",lat:47.671,lng:-2.988,address:"54 Place de la République",phone:"+33297241162",website:"https://www.agence-gauter.com",desc:"Agence immobilière",cat:"immobilier"},
+{id:"220184866026",name:"Emmaüs Roanne-Mably",city:"MABLY",zip:"42300",lat:46.04,lng:4.071,address:"90 rue des Rosiers",desc:"Emmaüs",cat:"menage"},
+{id:"220780655815",name:"Emmaüs Vienne Lyon Sud",city:"PONT-EVEQUE",zip:"38780",lat:45.52,lng:4.873,address:"1 bis Rue Gilbert Ollier",desc:"Emmaüs",cat:"menage"},
+{id:"220184861888",name:"Emmaüs Saint Etienne",city:"ROCHE-LA-MOLIERRE",zip:"42230",lat:45.417,lng:4.291,address:"Puits de Combefort",desc:"Emmaüs",cat:"menage"},
+{id:"220184856806",name:"Emmaüs Lyon",city:"VENISSIEUX",zip:"69200",lat:45.72,lng:4.866,address:"8 avenue Marius Berliet",desc:"Emmaüs",cat:"menage"},
+{id:"220184854746",name:"Emmaüs Saint Paul Les Romans",city:"SAINT-PAUL-LES-ROMANS",zip:"26750",lat:45.123,lng:5.04,address:"Z.A Grand Chasse",desc:"Emmaüs",cat:"menage"},
+{id:"220184853691",name:"EMRA",city:"SAINT-ANDRE-LE-GAZ",zip:"38490",lat:45.53,lng:5.524,address:"5 rue du docteur Roux",desc:"Emmaüs",cat:"menage"},
+{id:"220184849612",name:"Emmaüs Bourg en Bresse",city:"SERVAS",zip:"01960",lat:46.205,lng:5.127,address:"5 Place de l'Eglise",desc:"Emmaüs",cat:"menage"},
+{id:"220560994511",name:"Emmaüs Thonon",city:"THONON",zip:"74200",lat:46.371,lng:6.477,address:"Chemin du Clos d'Yvoire",desc:"Emmaüs",cat:"menage"},
+{id:"220184835292",name:"Emmaüs Tarare",city:"TARARE",zip:"69170",lat:45.88,lng:4.497,address:"29 rue Boucher de Perthes",desc:"Emmaüs",cat:"menage"},
+{id:"220560986335",name:"Emmaüs Annemasse",city:"CRANVES-SALES",zip:"74380",lat:46.186,lng:6.275,address:"631 route des Tattes de Borly",desc:"Emmaüs",cat:"menage"},
+{id:"220560978154",name:"Emmaüs Etoile sur Rhone",city:"Etoile-sur-Rhône",zip:"26800",lat:44.857,lng:4.847,desc:"Emmaüs",cat:"menage"},
+{id:"km001",name:"Costockage Paris Paradis",city:"Paris",zip:"75010",lat:48.8749,lng:2.3539,address:"22 rue de Paradis",desc:"Self-stockage Kostok — boxes sécurisés",cat:"gardemeubles"},
+{id:"km002",name:"Costockage Paris Nation",city:"Paris",zip:"75011",lat:48.8532,lng:2.3953,address:"105 Bd de Charonne",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km003",name:"Costockage Paris Clignancourt",city:"Paris",zip:"75018",lat:48.8925,lng:2.3436,address:"126 Rue Marcadet",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km004",name:"Costockage Lyon Gerland",city:"Lyon",zip:"69007",lat:45.7327,lng:4.8368,address:"22 rue du Professeur Weill",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km005",name:"Costockage Marseille La Valentine",city:"Marseille",zip:"13011",lat:43.2967,lng:5.4502,address:"25 avenue de la Valentine",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km006",name:"Costockage Bordeaux Bègles",city:"Bègles",zip:"33130",lat:44.8172,lng:-0.5525,address:"6 rue Gutenberg",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km007",name:"Costockage Toulouse Blagnac",city:"Blagnac",zip:"31700",lat:43.6376,lng:1.3969,address:"11 rue de Bordebasse",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km008",name:"Costockage Nantes Saint-Herblain",city:"Saint-Herblain",zip:"44800",lat:47.2401,lng:-1.6214,address:"55 boulevard Salvador Allende",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km009",name:"Costockage Lille Roubaix",city:"Roubaix",zip:"59100",lat:50.6948,lng:3.1761,address:"45 rue de Lannoy",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km010",name:"Costockage Strasbourg Koenigshoffen",city:"Strasbourg",zip:"67200",lat:48.5713,lng:7.7183,address:"10 rue de la Patrie",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km011",name:"Costockage Nice Saint-Isidore",city:"Nice",zip:"06200",lat:43.7267,lng:7.2534,address:"100 route de Grenoble",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"km012",name:"Costockage Montpellier Lattes",city:"Lattes",zip:"34970",lat:43.5718,lng:3.8958,address:"330 avenue de la Mer",desc:"Self-stockage Kostok",cat:"gardemeubles"},
+{id:"435042191561",name:"Phoenix Sud Transport",city:"Sorgues",zip:"84700",lat:44.008,lng:4.873,desc:"Déménagement — 84",cat:"demenagement"},
+{id:"435017030899",name:"Xavier Traffi MULTISERVICE",city:"SOREDE",zip:"66690",lat:42.524,lng:3.03,address:"18 RUE DE NOTRE DAME D'ULTRERA",desc:"Multiservice déménagement/débarras",cat:"demenagement"},
+{id:"434768532669",name:"AMT",city:"Paris",zip:"75008",lat:48.875,lng:2.31,desc:"Déménagement IDF",cat:"demenagement"},
+{id:"433529840868",name:"Les déménageurs bretons",city:"Aubenas",zip:"07000",lat:44.736,lng:4.601,desc:"Déménagement 07/26/38",cat:"demenagement"},
+{id:"431950060749",name:"GMS TRANSPORTS EXPRESS 21",city:"NORGES-LA-VILLE",zip:"21490",lat:47.405,lng:5.135,address:"3 B RUE DES SOURCES",desc:"Déménageurs + débarras",cat:"demenagement"},
+{id:"424552949986",name:"MTZ",city:"GONESSE",zip:"95500",lat:48.997,lng:2.529,address:"6 PARC D'ORGEMONT",desc:"Déménagement IDF",cat:"demenagement"},
+{id:"415707366605",name:"MOOVLINE Transport et Déménagement",city:"VILLENEUVE-D'ASCQ",zip:"59650",lat:50.621,lng:3.124,address:"6 RUE DU BLASON",desc:"15+20+30m3 — Hauts de France",cat:"demenagement"},
+{id:"408838383858",name:"ARMORIDEM",city:"DERVAL",zip:"44590",lat:47.661,lng:-1.668,address:"381 RUE AMPERE",desc:"Bretagne + Pays de la Loire",cat:"demenagement"},
+{id:"402224167130",name:"2 M TRANSPORT",city:"Lyon",zip:"69001",lat:45.768,lng:4.834,desc:"Déménageur",cat:"demenagement"},
+{id:"393094426830",name:"Vitatrans",city:"SAINT-VIT",zip:"25410",lat:47.183,lng:5.834,address:"1 RUE DES BOUCHERIES",website:"www.vitatrans.fr",desc:"Petit volume",banned:true,cat:"demenagement"},
+{id:"326630122709",name:"ANYR TRANS & DEMENAGEMENT",city:"CHATENAY-MALABRY",zip:"92290",lat:48.766,lng:2.265,address:"22 RUE LEON MARTINE",desc:"IDF",cat:"demenagement"},
+{id:"297796587706",name:"TLS Europe",city:"Saint-Leu-la-Forêt",zip:"95320",lat:49.017,lng:2.243,address:"10 rue Jules Verne",website:"www.tlseurop.fr",desc:"3 VL — International",cat:"demenagement"},
+{id:"366938019041",name:"Transports déménagements Corbier",city:"ALLEGRE-LES-FUMADES",zip:"30500",lat:44.224,lng:4.231,desc:"2 camions 22m3",cat:"demenagement"},
+{id:"348290816237",name:"Hyper Express",city:"NANTERRE",zip:"92000",lat:48.892,lng:2.207,desc:"Déménageur Pro",banned:true,cat:"demenagement"},
+{id:"330363220190",name:"UNIMOVE",city:"PORTET-SUR-GARONNE",zip:"31120",lat:43.524,lng:1.405,address:"1 RUE EUGENE MONTEL",desc:"Groupe UNIMOVE",banned:true,cat:"demenagement"},
+{id:"176656476397",name:"DMAX LYON (GENAS)",city:"Genas",zip:"69740",lat:45.728,lng:4.998,address:"8 Rue des Frères Lumière",desc:"Déménagement + import/export",banned:true,cat:"demenagement"},
+{id:"176656465139",name:"TRANSAXE 69",city:"Lyon",zip:"69003",lat:45.758,lng:4.857,address:"281 Rue Duguesclin",desc:"Déménagement",banned:true,cat:"demenagement"},
+{id:"199606841568",name:"The Movers",city:"Région Parisienne",zip:"78000",lat:48.802,lng:2.13,website:"the-movers.eu",desc:"1 camion 20m3",banned:true,cat:"demenagement"},
+{id:"192951615727",name:"Les Déménageurs du Sud",city:"Agen",zip:"47000",lat:44.203,lng:0.617,address:"40 Rue du Général Ressayre",desc:"Déménagements France et Europe",banned:true,cat:"demenagement"},
+{id:"190513810672",name:"Fany transport",city:"Strasbourg",zip:"67200",lat:48.585,lng:7.694,phone:"+33652030561",desc:"2 camions 15/22m3",banned:true,cat:"demenagement"},
+{id:"237694421240",name:"Mou & You transport",city:"Béziers",zip:"34500",lat:43.344,lng:3.215,address:"41 rue du raisiné",phone:"+33766114850",website:"https://mouyoutransports.fr",desc:"Occitanie — 2 camions 25+30m3",banned:true,cat:"demenagement"},
+{id:"237723761893",name:"Douleb transport",city:"PARIS",zip:"75019",lat:48.887,lng:2.383,address:"118 AVENUE JEAN JAURES",desc:"8 camions — national + Europe",banned:true,cat:"demenagement"},
+{id:"199649696980",name:"CURY PIERRE (DEMENAGEMENT CURY)",city:"BAIS",zip:"35680",lat:47.984,lng:-1.282,address:"9 RUE DES MARCHES DE BRETAGNE",website:"demenagement-cury.fr",desc:"Déménagement + débarras — Bretagne",cat:"demenagement"},
+{id:"192781834445",name:"Sabri Transport",city:"Aulnay-sous-Bois",zip:"93600",lat:48.941,lng:2.498,address:"7 Pl. de l'Hôtel de ville",desc:"1 camion 20m3 avec hayon",cat:"demenagement"},
+{id:"156968624314",name:"PPDF transport et déménagement",city:"Ivry-sur-Seine",zip:"94200",lat:48.812,lng:2.388,address:"12 Av. Maurice Thorez",website:"www.demenagement-garnier.fr",desc:"Transports et déménagements IDF",cat:"demenagement"},
+{id:"145635808492",name:"Houssam taiatat",city:"Toulouse",zip:"31100",lat:43.573,lng:1.398,desc:"Déménagement + débarras",cat:"demenagement"},
+{id:"429805105359",name:"LOC BENNE Bordeaux",city:"BORDEAUX",zip:"33300",lat:44.881,lng:-0.563,address:"2 RUE SUFFREN",desc:"Débarras de gravats",cat:"debarras"},
+{id:"428261388494",name:"AM PRO HABITAT",city:"Talence",zip:"33400",lat:44.808,lng:-0.591,address:"91 rue de la république",phone:"+33765842012",website:"https://amprohabitat.fr",desc:"Démolition et évacuation — Gironde",cat:"debarras"},
+{id:"426485688529",name:"Kevin Peraux",city:"La Tremblade",zip:"17390",lat:45.768,lng:-1.142,address:"10 Chemin de Saute Chèvre",phone:"+33658284089",website:"https://kevinperauxdebarras17.fr",desc:"Débarras — vide-maison — ferraille",cat:"debarras"},
+{id:"425116037329",name:"Les Débarrasseurs Tarnais",city:"Damiatte",zip:"81220",lat:43.642,lng:1.985,desc:"Débarras",cat:"debarras"},
+{id:"373894984916",name:"Hexadebarras",city:"GRENOBLE",zip:"38000",lat:45.188,lng:5.724,address:"2 Place Gustave Rivet",website:"www.hexadebarras.com",desc:"Débarras sur toute la France",cat:"debarras"},
+{id:"282640845042",name:"Nejjari services",city:"Avignon",zip:"84000",lat:43.951,lng:4.808,desc:"Débarras + nettoyage",cat:"debarras"},
+{id:"263630269648",name:"TRIK3R-COLLECTE",city:"AUCAMVILLE",zip:"31140",lat:43.687,lng:1.421,address:"36 CHEMIN CAMPARNAUD",desc:"20m3 — collecte et transport",cat:"debarras"},
+{id:"225636546788",name:"Debarasseur Luzolo",city:"Paris",zip:"75001",lat:48.862,lng:2.336,desc:"Débarras",cat:"debarras"},
+{id:"179768262884",name:"Le débarras de province",city:"Brest",zip:"29200",lat:48.39,lng:-4.486,address:"13 Rue Saint-Martin",desc:"Débarras",cat:"debarras"},
+{id:"175288932581",name:"Haute Savoie Débarras",city:"Annecy",zip:"74000",lat:45.899,lng:6.129,desc:"Déménagement et débarras",cat:"debarras"},
+{id:"172433561840",name:"FREDERIC MESUREUR",city:"Bourges",zip:"18000",lat:47.084,lng:2.396,desc:"Débarras",cat:"debarras"},
+{id:"156403000510",name:"SAS GV32",city:"BEAUMONT",zip:"32100",lat:43.881,lng:0.586,address:"Ld Pouy de Bas",desc:"Débarras",cat:"debarras"},
+{id:"156550328524",name:"Débarrassure 06",city:"Tourrette-Levens",zip:"06690",lat:43.76,lng:7.23,address:"Chem. du Castellar",website:"www.debarrassure.com",desc:"Débarras et nettoyage",cat:"debarras"},
+{id:"388701231346",name:"C&N Services",city:"Canet-en-Roussillon",zip:"66140",lat:42.703,lng:3.038,address:"17 impasse Maurice Ravel",desc:"Débarras + Nettoyage",cat:"debarras"},
+{id:"429778374899",name:"ludeauclean",city:"PERPIGNAN",zip:"66000",lat:42.699,lng:2.895,address:"34 RUE THEODORE BALLU",desc:"Nettoyage",cat:"nettoyage"},
+{id:"162404669660",name:"URGENCE NETTOYAGE",city:"Avignon",zip:"84000",lat:43.951,lng:4.808,address:"2 Rue Antoine le Moiturier",desc:"Nettoyage",cat:"nettoyage"},
+{id:"160204518587",name:"PP Nettoyage",city:"Marseille",zip:"13013",lat:43.33,lng:5.401,address:"5 Rue du Taoume",desc:"Nettoyage",cat:"nettoyage"},
+{id:"143233268933",name:"Nettoyage 07",city:"Aubenas",zip:"07200",lat:44.621,lng:4.388,address:"6 Pl. de l'Airette",desc:"Nettoyage et débarras",cat:"nettoyage"},
+{id:"163211673788",name:"Artisan Nettoyage",city:"St-Germain-Cogles",zip:"35133",lat:48.388,lng:-1.291,address:"Les rochettes",desc:"Débarras + nettoyage façades",banned:true,cat:"nettoyage"},
+{id:"379815179481",name:"POMPES FUNEBRES DUMOULIN",city:"Romans-sur-Isère",zip:"26100",lat:45.04,lng:5.051,address:"Rue Calixte Lafosse",desc:"Pompes funèbres",cat:"pf"},
+{id:"378370769131",name:"SOCIETE PF DES COMMUNES ASSOCIEES",city:"Brest",zip:"29200",lat:48.39,lng:-4.486,address:"345 le Vern",desc:"Pompes funèbres",cat:"pf"},
+{id:"378566354143",name:"POMPE FUNEBRE LEPRESLE",city:"Montebourg",zip:"50310",lat:49.49,lng:-1.392,address:"2 Rue du Mont Castre",desc:"Pompes funèbres",cat:"pf"},
+{id:"378566353112",name:"GRENOUILLEAU FRERES",city:"Sèvremoine",zip:"49230",lat:47.108,lng:-1.044,address:"10 Rue des Aubretieres",desc:"Pompes funèbres",cat:"pf"},
+{id:"378566348014",name:"FB MARBRIER POMPES FUNEBRES",city:"Champagne-sur-Seine",zip:"77430",lat:48.402,lng:2.804,address:"52 Rue Francis Poulenc",desc:"Pompes funèbres",cat:"pf"}
+];
+var CAT = {
+  demenagement: {color:'#4ade80', label:'Demenagement',  svg:'&#x1F69A;'},
+  debarras:     {color:'#f97316', label:'Debarras',       svg:'&#x1F4E6;'},
+  nettoyage:    {color:'#38bdf8', label:'Nettoyage',      svg:'&#x1F9F9;'},
+  menage:       {color:'#e879f9', label:'Menage/Emmaus',  svg:'&#x267B;'},
+  immobilier:   {color:'#94a3b8', label:'Immobilier',     svg:'&#x1F3E0;'},
+  gardemeubles: {color:'#fbbf24', label:'Garde-meubles',  svg:'&#x1F3EA;'},
+  pf:           {color:'#a78bfa', label:'Pompes funebres',svg:'&#x26B1;'}
+};
+var activeFilters = ['demenagement','debarras','nettoyage','menage','immobilier','gardemeubles','pf','banned'];
+var allMarkers = [];
+var map;
+var _seen = {};
+var UNIQ = [];
+for (var _i=0;_i<COMPANIES.length;_i++){if(!_seen[COMPANIES[_i].id]){_seen[COMPANIES[_i].id]=1;UNIQ.push(COMPANIES[_i]);}}
+function getCat(c){ return c.cat || 'demenagement'; }
+function makeIcon(color, emoji, r, stroke, sw, pulse) {
+  var w = r*2+10, cx = r+5;
+  var anim = pulse ? 'animation:bannedPulse 2s ease-in-out infinite;' : '';
+  var svg = '<svg width="'+w+'" height="'+w+'" xmlns="http://www.w3.org/2000/svg">'
+    +'<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" fill="'+color+'" fill-opacity="0.92" stroke="'+stroke+'" stroke-width="'+sw+'" style="'+anim+'"/>'
+    +'<text x="'+cx+'" y="'+(cx+4)+'" text-anchor="middle" dominant-baseline="middle" font-size="'+r+'">'+emoji+'</text>'
+    +'</svg>';
+  return L.divIcon({html:svg, className:'', iconSize:[w,w], iconAnchor:[cx,cx], popupAnchor:[0,-cx]});
+}
+function addMarker(c) {
+  var cat = getCat(c);
+  var ci = CAT[cat] || CAT.demenagement;
+  var banned = c.banned === true;
+  var gmd = cat === 'gardemeubles';
+  var color = banned ? '#ff2222' : ci.color;
+  var r = gmd ? 13 : 11;
+  var stroke = banned ? '#ff5555' : (gmd ? '#fbbf24' : 'rgba(0,0,0,0.3)');
+  var sw = (banned||gmd) ? 2 : 1.5;
+  var emoji = banned ? '&#x1F6AB;' : ci.svg;
+  var icon = makeIcon(color, emoji, r, stroke, sw, banned);
+  var mk = L.marker([c.lat, c.lng], {icon:icon});
+  var loc = (c.zip||'')+' '+(c.city||'');
+  var bannedBadge = banned ? '<div style="background:rgba(255,34,34,.15);border:1px solid rgba(255,34,34,.4);border-radius:6px;padding:5px 8px;margin-bottom:6px;font-size:9px;color:#ff3333;font-weight:700;">NE PAS SOLLICITER - BA2 NED</div>' : '';
+  var multiBadge = c.multi ? '<div style="font-size:9px;color:#999;margin-top:3px;font-style:italic;">Multi-services</div>' : '';
+  var popup = '<div class="popup-inner">'
+    +bannedBadge
+    +'<div class="popup-cat" style="color:'+color+';border-color:'+color+'40">'+ci.label+'</div>'
+    +'<div class="popup-name">'+c.name+'</div>'
+    +'<div class="popup-loc">'+loc+'</div>'
+    +multiBadge
+    +'</div>'
+    +'<div class="popup-footer">'
+    +'<a href="https://app.hubspot.com/contacts/144126395/record/0-2/'+c.id+'" target="_blank" class="popup-link" style="color:'+(gmd?'#fbbf24':'#60a5fa')+'">&#x1F517; HubSpot</a>'
+    +'<a href="#" class="popup-link" style="color:'+color+'" onclick="openPanel(\''+c.id+'\');return false;">Details &rarr;</a>'
+    +'</div>';
+  mk.bindPopup(L.popup({maxWidth:260,closeButton:false}).setContent(popup));
+  mk._cat = banned?'banned':cat; mk._rcat = cat; mk._banned = banned;
+  mk.addTo(map);
+  allMarkers.push({mk:mk,c:c});
+}
+function openPanel(id) {
+  var c=null;
+  for(var i=0;i<UNIQ.length;i++){if(UNIQ[i].id===id){c=UNIQ[i];break;}}
+  if(!c) return;
+  var cat=getCat(c), ci=CAT[cat]||CAT.demenagement;
+  var banned=c.banned===true, gmd=cat==='gardemeubles';
+  var col=banned?'#ff2222':ci.color;
+  document.getElementById('p-icon').innerHTML = ci.svg;
+  document.getElementById('p-name').textContent = c.name;
+  var b=document.getElementById('p-badge');
+  b.textContent=banned?'BANNED':ci.label; b.style.color=col; b.style.borderColor=col;
+  document.getElementById('p-addr').textContent=[c.address,c.zip,c.city].filter(Boolean).join(', ')||'-';
+  var rp=document.getElementById('pb-phone');
+  if(c.phone){document.getElementById('p-phone').textContent=c.phone;rp.style.display='flex';}else rp.style.display='none';
+  var rw=document.getElementById('pb-web');
+  if(c.website){var a=document.getElementById('p-web');a.href=c.website.indexOf('http')===0?c.website:'https://'+c.website;a.textContent=c.website.replace(/^https?:\/\//,'');rw.style.display='flex';}else rw.style.display='none';
+  var rd=document.getElementById('pb-desc');
+  if(c.desc){document.getElementById('p-desc').textContent=c.desc;rd.style.display='block';}else rd.style.display='none';
+  document.getElementById('pb-banned').style.display=banned?'block':'none';
+  document.getElementById('pb-costockage').style.display=gmd?'block':'none';
+  var hs=document.getElementById('p-hslink');
+  if(gmd){hs.href='https://www.costockage.fr';hs.textContent='costockage.fr';}
+  else{hs.href='https://app.hubspot.com/contacts/144126395/record/0-2/'+c.id;hs.textContent='Voir dans HubSpot';}
+  document.getElementById('panel').classList.add('open');
+}
+function closePanel(){document.getElementById('panel').classList.remove('open');}
+function toggleFilter(cat,el){
+  var idx=activeFilters.indexOf(cat);
+  if(idx>=0){activeFilters.splice(idx,1);el.classList.remove('active');}
+  else{activeFilters.push(cat);el.classList.add('active');}
+  applyFilters();
+}
+function applyFilters(){
+  var q=document.getElementById('search').value.toLowerCase().trim();
+  for(var i=0;i<allMarkers.length;i++){
+    var obj=allMarkers[i];
+    var catOk=activeFilters.indexOf(obj.mk._rcat)>=0||(obj.mk._banned&&activeFilters.indexOf('banned')>=0);
+    var qOk=!q||((obj.c.name||'')+' '+(obj.c.city||'')+' '+(obj.c.zip||'')+' '+(obj.c.desc||'')).toLowerCase().indexOf(q)>=0;
+    if(catOk&&qOk){if(!map.hasLayer(obj.mk))obj.mk.addTo(map);}
+    else{if(map.hasLayer(obj.mk))map.removeLayer(obj.mk);}
+  }
+}
+function updateCounts(){
+  var cnt={demenagement:0,debarras:0,nettoyage:0,menage:0,immobilier:0,gardemeubles:0,pf:0},bn=0;
+  for(var i=0;i<UNIQ.length;i++){var cat=getCat(UNIQ[i]);if(cnt[cat]!==undefined)cnt[cat]++;if(UNIQ[i].banned)bn++;}
+  document.getElementById('c-dem').textContent=cnt.demenagement;
+  document.getElementById('c-deb').textContent=cnt.debarras;
+  document.getElementById('c-net').textContent=cnt.nettoyage;
+  document.getElementById('c-men').textContent=cnt.menage;
+  document.getElementById('c-imm').textContent=cnt.immobilier;
+  document.getElementById('c-gmd').textContent=cnt.gardemeubles;
+  document.getElementById('c-pf').textContent=cnt.pf;
+  document.getElementById('c-ban').textContent=bn;
+}
+function init(){
+  map=L.map('map',{zoomControl:true}).setView([46.8,2.3],6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'(c) OpenStreetMap',maxZoom:18}).addTo(map);
+  updateCounts();
+  for(var i=0;i<UNIQ.length;i++){if(UNIQ[i].lat&&UNIQ[i].lng)addMarker(UNIQ[i]);}
+}
+init();
+</script>
+</body>
+</html>
